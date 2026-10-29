@@ -7,11 +7,11 @@
 # 也从这里读取课程名、学时等信息
 # ============================================================
 
-title: 课程名称                      # 书名，例如：机器学习
-description: 面向成人教育人工智能技术应用专业（专科）的《课程名称》教材，每章配套动手实验
+title: 大数据技术处理技术            # 书名
+description: 面向成人教育人工智能技术应用专业（专科）的《大数据技术处理技术》教材，12 章 36 个动手实验，在自己电脑上用 Docker 搭 Hadoop/Spark 小集群
 audience: 成人教育（继续教育）人工智能技术应用专业专科学生，多为在职学习者
 github_user: MingziFu9                # 网址 https://<github_user>.github.io/<repo>/
-repo: ai-textbook-template            # GitHub 仓库名（用模板新建后改成本课的，如 ml-textbook）
+repo: bigdata-textbook                # GitHub 仓库名（用模板新建后改成本课的，如 ml-textbook）
 
 credits: 4                            # 学分
 hours: {theory: 60, lab: 12}          # 学时：理论 + 实验
@@ -21,27 +21,36 @@ labs_per_chapter: 3                   # 每章实验数；0 表示没有实验
 lab_section: 本章实验                 # 实验部分的二级标题；导论用“在线体验”
 lab_word: 实验                        # 每个实验的三级标题前缀（### 实验 N-M）；导论用“体验”
 frontier_title: 前沿视窗              # 每章“前沿”小节的名称，导论用“身边的 AI”
-certificates:                         # 对应的职业证书；没有证书的课程写成 certificates: []，导航里就不显示“证书考点对照”页
-  - name: 证书名称（级别）
-    issuer: 发证机构，标准或考纲名称（年份）
+certificates: []                      # 人才培养方案没有给本课挂证书
 
 # 章节：dir 是 docs/chapters/ 下的文件夹名（两位章号开头），short 用于学习图谱等窄处
 # theory / lab 是本章学时；labs 可单独覆盖本章实验数；offline 可指定本章线下学时（不写则按 online_ratio 分）
 chapters:
-  - {dir: 01-sample, title: 示例章, short: 示例章, theory: 5, lab: 1}
+  - {dir: 01-overview, title: "大数据概述与技术生态", short: "概述与生态", theory: 4, lab: 1, offline: 1}
+  - {dir: 02-environment, title: "实验环境：Docker 与 Hadoop 集群", short: "Docker 与集群", theory: 5, lab: 1, offline: 2}
+  - {dir: 03-hdfs, title: "HDFS 分布式文件系统", short: "HDFS", theory: 5, lab: 1, offline: 1}
+  - {dir: 04-mapreduce-yarn, title: "MapReduce 与 YARN", short: "MapReduce 与 YARN", theory: 5, lab: 1, offline: 1}
+  - {dir: 05-hive, title: "Hive 数据仓库", short: "Hive", theory: 6, lab: 1, offline: 1}
+  - {dir: 06-spark-rdd, title: "Spark 入门与 RDD 编程", short: "Spark 与 RDD", theory: 5, lab: 1, offline: 1}
+  - {dir: 07-data-cleaning, title: "用 Spark 做数据清洗", short: "数据清洗", theory: 5, lab: 1, offline: 1}
+  - {dir: 08-spark-sql, title: "DataFrame 与 Spark SQL 数据分析", short: "Spark SQL", theory: 6, lab: 1, offline: 1}
+  - {dir: 09-streaming, title: "Kafka 与实时数据处理", short: "实时处理", theory: 5, lab: 1, offline: 1}
+  - {dir: 10-mllib, title: "Spark MLlib 机器学习应用", short: "MLlib", theory: 5, lab: 1, offline: 1}
+  - {dir: 11-tuning, title: "常见问题与调优", short: "问题与调优", theory: 4, lab: 1, offline: 1}
+  - {dir: 12-visualization-project, title: "数据可视化、数据合规与综合项目", short: "可视化与项目", theory: 5, lab: 1, offline: 2}
 
 # 其他页面：追加在导航“常见问题”之后，如 extra_pages: [{file: mock-exam.md, title: 在线模拟卷}]
-extra_pages: []
+extra_pages: [{file: mock-exam.md, title: 在线模拟卷}]
 
 # 附录：docs/appendix/ 下的文件，按顺序自动编号为 A、B、C……（术语表固定为 glossary.md）
 appendices:
-  - {file: a-python.md, title: Python 速查}
-  - {file: b-libraries.md, title: 工具库速查}
+  - {file: a-linux-pyspark.md, title: Linux 与 PySpark 速查}
+  - {file: b-components.md, title: 大数据组件速查}
   - {file: c-environment.md, title: 实验环境与数据说明}
   - {file: glossary.md, title: 术语表}
 
 # 教案默认设置（每章可在 lesson-plans/chNN.yml 里覆盖）
 lesson_plan:
-  online_ratio: 0.5                   # 线上学时占比（开放大学以线上为主，按实际改）
+  online_ratio: 0.8                   # 线上学时占比（本课线上 58、线下 14；各章已用 offline 指定）
   teacher: ""                         # 授课教师，留空则教案上留出填写位置
   school: ""                          # 学校名称，留空则不显示

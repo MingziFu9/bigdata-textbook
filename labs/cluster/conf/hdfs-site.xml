@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- hdfs-site.xml：HDFS 的配置 -->
+<configuration>
+  <!-- 每个数据块保存几份副本。本书集群只有 2 个 DataNode，所以设为 2（生产环境默认 3） -->
+  <property>
+    <name>dfs.replication</name>
+    <value>2</value>
+  </property>
+  <!-- 数据块大小，默认 128 MB -->
+  <property>
+    <name>dfs.blocksize</name>
+    <value>134217728</value>
+  </property>
+  <!-- NameNode 的 Web 管理页面 -->
+  <property>
+    <name>dfs.namenode.http-address</name>
+    <value>master:9870</value>
+  </property>
+  <!-- 关闭权限检查，方便实验；生产环境不能这样做 -->
+  <property>
+    <name>dfs.permissions.enabled</name>
+    <value>false</value>
+  </property>
+  <!-- 容器里的 DataNode 用主机名互相访问 -->
+  <property>
+    <name>dfs.client.use.datanode.hostname</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>dfs.datanode.use.datanode.hostname</name>
+    <value>true</value>
+  </property>
+</configuration>

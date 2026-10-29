@@ -1,0 +1,104 @@
+# 第 4 章教案底稿，由 python tools/make_lesson_plan.py draft 生成。
+# 改好“【待填】”的地方，删减或补充其他内容后运行 build。字段说明见 lesson-plans/README.md
+chapter: 4
+online: 5
+offline: 1
+methods:
+- 讲授法
+- 案例教学法
+- 演示法
+- 线上自主学习
+- 实验教学法
+objectives:
+  knowledge:
+  - 说出 MapReduce 作业经过的 Map、Shuffle、Reduce 三个阶段，以及 YARN 中 ResourceManager、NodeManager、ApplicationMaster 和容器各自的职责
+  - 解释分区和 Combiner 的作用，说明 Shuffle 为什么是作业中最费时的一步
+  skill:
+  - 编写 Python 版的 mapper 和 reducer，先在本机用管道调试，再用 Hadoop Streaming 提交到集群，完成 PV、UV 和热门页面统计
+  - 判断一个统计需求该用“计数求和”“去重计数”还是“排行榜”写法，以及能不能加 Combiner
+  - 排查作业失败或卡住的原因：在 8088 网页和作业日志中找到出错的任务和错误信息，并提出解决办法
+  quality:
+  - 养成“先在本机小数据上调通、再上集群”的工程习惯，用计数器和日志核对结果，不凭感觉下结论
+  - 理解训练数据加工是人工智能的上游工作，在处理用户访问日志时注意只做匿名统计，保护个人信息
+key_points:
+- MapReduce 作业的三个阶段：Map、Shuffle、Reduce，以及分区和 Combiner 的作用
+- 用 Hadoop Streaming 编写和提交 Python 版的 mapper、reducer
+- 计数求和、去重计数、排行榜三种常用写法
+- YARN 的四个角色，在 8088 网页和日志中查看作业、排查失败
+difficulties:
+- point: Shuffle 阶段看不见摸不着，学生说不清数据怎样从 Map 到 Reduce、为什么同一个键一定在同一个 Reduce
+  solution: 先让学生在纸上手推三行搜索关键词的例子，再用“MapReduce 词频统计全流程”动画逐步核对，用颜色看分区；改 Reduce 个数和勾选 Combiner，对比计数器的变化
+- point: 把业务需求翻译成“键是什么、值是什么”，判断能否加 Combiner、该设几个 Reduce
+  solution: 用 4.4.4 节的对照表做“翻译练习”，每个需求先说出对应的 SQL 写法（GROUP BY 哪一列、用什么聚合函数），再对应到 mapper 和 reducer
+- point: 作业失败时只看到一长串 Java 报错，不知道从哪里找原因
+  solution: 课上现场复现“漏写 -files”的失败作业，带学生走一遍“找任务 → 看 stderr → 对症改”三步；用 YARN 动画演示作业卡在 ACCEPTED 的原因
+process:
+- phase: 课前（线上）
+  steps:
+  - name: 自主学习
+    minutes: 150
+    content: 学习网页教材第 4 章 4.1～4.7 节，操作“MapReduce 词频统计全流程”和“YARN 资源分配”两个动画，完成 4.2.2 节“算一算”
+    teacher: 在学习平台发布学习任务单和三个预习问题：Shuffle 做了什么？什么统计不能加 Combiner？作业停在 ACCEPTED 可能是什么原因？
+    student: 阅读教材、操作动画、手推词频统计，在讨论区提交预习问题的回答和疑问
+    intent: 基础概念线上自学，把面授时间留给难点和排错
+  - name: 实验 4-1
+    minutes: 30
+    content: 实验 4-1 在本机“演”一遍 MapReduce：运行模拟程序，用管道跑通词频统计和评价短语统计
+    teacher: 提供实验指导和常见问题排查表，在线答疑
+    student: 完成实验 4-1，填写实验记录表
+    intent: 用模拟程序把抽象的执行过程具体化，为面授做准备
+- phase: 课中（线下面授 / 直播）
+  steps:
+  - name: 情景导入
+    minutes: 5
+    content: 运营主管的三个问题（每小时 PV、UV、热门页面）；算一笔账：一块硬盘读 1 TB 要近 2 小时，100 台机器各读 10 GB 只要一分多钟
+    teacher: 讲述情景，提问“5 TB 日志笔记本要多久读完”
+    student: 估算并回答，说出自己的想法
+    intent: 用数字说明为什么要分布式计算
+  - name: 难点讲解：Shuffle、分区与 Combiner
+    minutes: 12
+    content: 抽查预习问题；对照学生的手推结果，用动画逐步演示 Map、分区、Shuffle、Reduce；改 Reduce 个数、勾选 Combiner，对比计数器；讲解哪些统计能用 Combiner
+    teacher: 组织学生报告手推结果，操作动画讲解，追问“耳机为什么不会出现在两个输出文件里”
+    student: 对照动画检查手推结果，回答提问
+    intent: 突破难点一，建立“数据流动”的直观印象
+  - name: 翻译练习：键是什么、值是什么
+    minutes: 8
+    content: 给出 4 个小象优选的统计需求（页面访问次数、每小时 UV、销售额前 5 的省份、各品类平均客单价），分组说出键、值、reducer 做法、能否加 Combiner、Reduce 个数
+    teacher: 分组布置任务，讲评典型错误（UV 加 Combiner、TopN 用多个 Reduce）
+    student: 小组讨论并汇报
+    intent: 突破难点二，把业务问题翻译成 MapReduce 写法
+  - name: 演示：在集群上运行与排错
+    minutes: 10
+    content: 现场提交实验 4-2 的 PV/UV 作业，在 8088 网页上查看作业和计数器；再提交漏写 -files 的作业，按“找任务、看 stderr、对症改”排错；用 YARN 动画解释作业停在 ACCEPTED
+    teacher: 投屏演示，边操作边讲解 YARN 四个角色在作业中的分工
+    student: 观看演示，记录排错步骤
+    intent: 突破难点三，为课后实验 4-2 做准备
+  - name: 课堂练习
+    minutes: 7
+    content: 课后练习中的单选第 2、5、7 题，多选第 3 题，判断第 5 题（在线作答）
+    teacher: 组织学生在网页上作答，讲评错误率高的题
+    student: 在线作答，查看解析
+    intent: 即时检验学习效果
+  - name: 小结
+    minutes: 3
+    content: 用本章知识导图回顾要点，说明 MapReduce 的局限，预告第 5 章 Hive
+    teacher: 带领学生梳理知识导图
+    student: 复述本章要点
+    intent: 形成知识结构
+- phase: 课后（线上）
+  steps:
+  - name: 实验 4-2（实验 4-3 选做）
+    minutes: 45
+    content: 在 Docker 集群上统计每小时 PV、UV 和热门页面，在 8088 网页查看作业，完成故意出错的排错练习；学有余力的完成实验 4-3；完成本章课后练习（在线作答 18 题，简答 / 实操 5 题）
+    teacher: 在线答疑，收集学生遇到的环境问题补充到常见问题
+    student: 完成实验，提交实验报告和给运营主管的汇报段落
+    intent: 把面授内容落到实际操作
+homework:
+- 简答题：用自己的话说明 Shuffle 阶段做了哪些事，为什么它通常是作业中最费时的一步，以及 Combiner 怎样减轻它的负担。
+- 简答题：运营主管想知道“9 月份每个商品分别有多少个不同的用户购买过”。如果用 Hadoop Streaming 实现，请说明：键和值分别是什么？reducer 怎样计算？能不能加 Combiner？Reduce 任务可以设几个？
+- 简答题：同事提交的 Streaming 作业失败了，他只看到屏幕上的 `Job not successful!`，不知道该怎么办。请写出你帮他排查的步骤。
+- 实操题：仿照实验 4-2 的作业一，统计 9 月 30 日全天每种终端（日志第 8 列）的 PV 和 UV。写出 mapper 程序、提交命令和运行结果。
+- 实操题：用 Hadoop Streaming 统计 `orders.csv` 中各省份“已完成”订单的订单数和销售额，按销售额从高到低列出前 5 名。提示：订单表用逗号分隔，第 5 列是金额，第 7 列是省份，第 9 列是订单状态。
+- 实验报告：实验 4-1、实验 4-2、实验 4-3
+assessment: 课堂练习正确率、课后作业和实验报告计入平时成绩
+reflection: ''

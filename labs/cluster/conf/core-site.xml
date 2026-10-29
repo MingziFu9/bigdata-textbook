@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- core-site.xml：整个 Hadoop 集群的公共配置 -->
+<configuration>
+  <!-- 默认文件系统：HDFS 的 NameNode 在 master 容器的 8020 端口 -->
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://master:8020</value>
+  </property>
+  <!-- Hadoop 的临时目录，NameNode、DataNode 的数据默认放在它下面 -->
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/data/hadoop</value>
+  </property>
+  <!-- 在 Web 页面上浏览、删除文件时使用的用户名 -->
+  <property>
+    <name>hadoop.http.staticuser.user</name>
+    <value>hadoop</value>
+  </property>
+</configuration>

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MapReduce 词频统计全流程</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.stage { display:flex; gap:8px; flex-wrap:wrap; }
+.task { flex:1; min-width:150px; border:1px solid var(--line); border-radius:8px; padding:6px 8px; background:#fafbfc; }
+.task h3 { font-size:12.5px; margin:0 0 4px; color:var(--muted); font-weight:600; }
+.kv { display:inline-block; padding:1px 6px; margin:2px; border-radius:4px; font-size:12.5px; border:1px solid transparent; white-space:nowrap; }
+.p0 { background:#e3f2fd; border-color:#90caf9; } .p1 { background:#fff3e0; border-color:#ffcc80; }
+.p2 { background:#e8f5e9; border-color:#a5d6a7; } .p3 { background:#f3e5f5; border-color:#ce93d8; }
+.line { font-size:12.5px; background:#fff; border:1px dashed var(--line); border-radius:4px; padding:1px 6px; margin:2px 0; }
+.steps { display:flex; gap:4px; flex-wrap:wrap; margin:6px 0; }
+.steps span { font-size:12px; padding:2px 8px; border-radius:10px; background:#eceff1; color:var(--muted); }
+.steps span.on { background:var(--accent); color:#fff; }
+.steps span.done { background:var(--soft); color:var(--accent); }
+.arrow { text-align:center; color:var(--muted); font-size:12px; margin:2px 0; }
+.legend .kv { cursor:default; }
+.hidden { display:none; }
+.counter { font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<h1>MapReduce 词频统计：一步一步看数据怎样流动</h1>
+<div class="sub">每行文字是一个用户的搜索关键词，词之间用空格隔开。每行算一个输入分片，交给一个 Map 任务。按“下一步”逐步播放。</div>
+<textarea id="inp" rows="3">手机 耳机 充电宝
+耳机 耳机 手机
+充电宝 手机 鞋</textarea>
+<div class="row ex"><span class="lbl">换一组：</span>
+  <button data-ex="0">搜索关键词（4.2 节）</button>
+  <button data-ex="1">商品评价短语</button>
+  <button data-ex="2">热门商品点击</button>
+</div>
+<div class="row">
+  <label>Reducer 个数 <select id="nred"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+  <label><input type="checkbox" id="comb"> 使用 Combiner（Map 端先合并）</label>
+</div>
+<div class="row">
+  <button id="prev">上一步</button>
+  <button class="main" id="next">下一步</button>
+  <button id="all">直接看结果</button>
+  <button id="reset">重新开始</button>
+</div>
+<div class="steps" id="steps"></div>
+<div class="msg" id="msg"></div>
+<div class="box"><h2>Map 端</h2><div class="stage" id="maps"></div></div>
+<div class="arrow" id="shufArrow">⇩ Shuffle：每个 Reducer 到所有 Map 那里拉取属于自己分区（同一颜色）的数据 ⇩</div>
+<div class="box"><h2>Reduce 端</h2><div class="stage" id="reds"></div></div>
+<div class="box">
+  <h2>计数器（和 Hadoop 作业结束时打印的计数器同名）</h2>
+  <table class="t counter" id="cnt"></table>
+  <div class="note">颜色表示分区：同一种颜色的键值对会被送到同一个 Reducer。分区号 = 键的哈希值 ÷ Reducer 个数的余数，算法与 Hadoop 默认的 HashPartitioner 相同，所以这里的结果和在真实集群上运行完全一致。</div>
+</div>
+<script src="../common/sim.js"></script>
+<script>
+(function () {
+  var EX = [
+    "手机 耳机 充电宝\n耳机 耳机 手机\n充电宝 手机 鞋",
+    "物流很快 性价比高\n质量一般 物流太慢\n物流很快 会回购 性价比高\n包装破损 物流太慢",
+    "p01372 p00523 p01372\np01886 p01372\np00523 p01372 p01886 p01372"
+  ];
+  var STEPS = ["输入分片", "Map", "Combine", "分区与排序", "Shuffle", "Reduce 分组", "输出"];
+  var TIPS = [
+    "输入被切成几个分片，每个分片交给一个 Map 任务。几个 Map 任务在不同机器上同时运行，互不干扰。",
+    "Map：每个 Map 任务逐行读入，把每个词变成一个键值对 (词, 1)。此时还没有任何汇总。",
+    "Combine：在 Map 端先把本分片里相同的词加起来，相当于“先在本地汇总一次”，要传出去的数据变少了。",
+    "分区与排序：按“哈希值 ÷ Reducer 个数”的余数决定每个键交给哪个 Reducer（颜色），并在每个分区内按键排序。",
+    "Shuffle：每个 Reducer 到所有 Map 那里拉取属于自己的那一种颜色，并把拉来的数据合并排序。这一步要通过网络传输，往往是最耗时的。",
+    "Reduce 分组：排好序后相同的键挨在一起，Reducer 把它们归成一组，得到“词 → [1, 1, …]”。",
+    "输出：Reducer 把每组加起来写到 HDFS，每个 Reducer 写一个文件 part-0000N。所有文件合起来就是完整结果。"
+  ];
+  var step = 0, data;
+  function textHash(s) {
+    var b = new TextEncoder().encode(s), h = 1;
+    for (var i = 0; i < b.length; i++) { h = (Math.imul(31, h) + (b[i] > 127 ? b[i] - 256 : b[i])) | 0; }
+    return h;
+  }
+  function part(k, n) { return (textHash(k) & 0x7fffffff) % n; }
+  function cmp(a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; }
+  function build() {
+    var lines = document.getElementById("inp").value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    var n = +document.getElementById("nred").value, useC = document.getElementById("comb").checked;
+    var maps = lines.map(function (line) {
+      var out = line.split(/\s+/).map(function (w) { return [w, 1]; });
+      var comb = out;
+      if (useC) {
+        var m = {}; out.forEach(function (p) { m[p[0]] = (m[p[0]] || 0) + 1; });
+        comb = Object.keys(m).map(function (k) { return [k, m[k]]; }).sort(cmp);
+      }
+      var parts = []; for (var r = 0; r < n; r++) parts.push([]);
+      comb.forEach(function (p) { parts[part(p[0], n)].push(p); });
+      parts.forEach(function (ps) { ps.sort(cmp); });
+      return { line: line, out: out, comb: comb, parts: parts };
+    });
+    var reds = []; for (var r = 0; r < n; r++) {
+      var fetched = []; maps.forEach(function (m) { fetched = fetched.concat(m.parts[r]); });
+      fetched.sort(cmp);
+      var groups = [], last = null;
+      fetched.forEach(function (p) { if (!last || last[0] !== p[0]) { last = [p[0], []]; groups.push(last); } last[1].push(p[1]); });
+      reds.push({ fetched: fetched, groups: groups });
+    }
+    data = { maps: maps, reds: reds, n: n, useC: useC };
+  }
+  function kv(p, n) { return '<span class="kv p' + part(p[0], n) + '">(' + p[0] + ", " + p[1] + ")</span>"; }
+  function render() {
+    var s = step, n = data.n, useC = data.useC;
+    var labels = STEPS.map(function (t, i) {
+      var skip = (i === 2 && !useC);
+      return '<span class="' + (i === s ? "on" : i < s ? "done" : "") + '">' + (skip ? "<s>" + t + "</s>" : t) + "</span>";
+    });
+    document.getElementById("steps").innerHTML = labels.join("");
+    var tip = TIPS[s]; if (s === 2 && !useC) tip = "没有勾选 Combiner，这一步跳过：Map 输出原样进入分区。勾选上面的“使用 Combiner”可以对比。";
+    document.getElementById("msg").innerHTML = "第 " + (s + 1) + " 步 · " + tip;
+    document.getElementById("maps").innerHTML = data.maps.map(function (m, i) {
+      var h = '<div class="task"><h3>Map 任务 ' + i + "</h3>" + '<div class="line">' + m.line + "</div>";
+      if (s >= 1) h += "<div>" + m.out.map(function (p) { return s >= 3 ? kv(p, n) : '<span class="kv" style="background:#eceff1">(' + p[0] + ", 1)</span>"; }).join("") + "</div>";
+      if (s >= 2 && useC) h += '<div class="note" style="margin:2px 0">合并后：</div><div>' + m.comb.map(function (p) { return s >= 3 ? kv(p, n) : '<span class="kv" style="background:#eceff1">(' + p[0] + ", " + p[1] + ")</span>"; }).join("") + "</div>";
+      if (s >= 3) h += m.parts.map(function (ps, r) { return '<div class="note" style="margin:2px 0">分区 ' + r + "：" + (ps.length ? ps.map(function (p) { return kv(p, n); }).join("") : "（空）") + "</div>"; }).join("");
+      return h + "</div>";
+    }).join("");
+    document.getElementById("shufArrow").style.opacity = s >= 4 ? 1 : 0.3;
+    document.getElementById("reds").innerHTML = data.reds.map(function (r, i) {
+      var h = '<div class="task"><h3>Reducer ' + i + '（<span class="kv p' + i + '">分区 ' + i + "</span>）</h3>";
+      if (s >= 4) h += '<div class="note" style="margin:2px 0">拉取并合并排序：</div><div>' + (r.fetched.length ? r.fetched.map(function (p) { return kv(p, n); }).join("") : "（没有分到数据）") + "</div>";
+      if (s >= 5) h += '<div class="note" style="margin:2px 0">分组：</div><div>' + r.groups.map(function (g) { return '<span class="kv p' + i + '">' + g[0] + " → [" + g[1].join(", ") + "]</span>"; }).join("") + "</div>";
+      if (s >= 6) h += '<div class="note" style="margin:2px 0">输出文件 part-0000' + i + "：</div><div>" + r.groups.map(function (g) { return '<span class="kv p' + i + '"><b>' + g[0] + "\t" + g[1].reduce(function (a, b) { return a + b; }, 0) + "</b></span>"; }).join("") + "</div>";
+      return h + "</div>";
+    }).join("");
+    var mo = 0, co = 0; data.maps.forEach(function (m) { mo += m.out.length; co += m.comb.length; });
+    var rows = [["Map input records（Map 读入的行数）", data.maps.length, s >= 1],
+      ["Map output records（Map 输出的键值对）", mo, s >= 1],
+      ["Combine output records（合并后的键值对）", useC ? co : 0, s >= 2],
+      ["Reduce input records（Shuffle 传给 Reduce 的键值对）", useC ? co : mo, s >= 4],
+      ["Reduce output records（最终结果行数）", data.reds.reduce(function (a, r) { return a + r.groups.length; }, 0), s >= 6]];
+    document.getElementById("cnt").innerHTML = "<tr><th>计数器</th><th>值</th></tr>" + rows.map(function (r) { return "<tr><td style='text-align:left'>" + r[0] + "</td><td>" + (r[2] ? r[1] : "…") + "</td></tr>"; }).join("");
+    document.getElementById("prev").disabled = s === 0;
+    document.getElementById("next").disabled = s === STEPS.length - 1;
+  }
+  function restart() { build(); step = 0; render(); }
+  document.getElementById("next").onclick = function () { step = Math.min(STEPS.length - 1, step + 1); if (step === 2 && !data.useC) { /* 仍显示跳过说明 */ } render(); };
+  document.getElementById("prev").onclick = function () { step = Math.max(0, step - 1); render(); };
+  document.getElementById("all").onclick = function () { step = STEPS.length - 1; render(); };
+  document.getElementById("reset").onclick = restart;
+  document.getElementById("nred").onchange = function () { build(); render(); };
+  document.getElementById("comb").onchange = function () { build(); render(); };
+  document.getElementById("inp").oninput = function () { build(); render(); };
+  Array.prototype.forEach.call(document.querySelectorAll("[data-ex]"), function (b) {
+    b.onclick = function () { document.getElementById("inp").value = EX[+b.getAttribute("data-ex")]; restart(); };
+  });
+  restart();
+})();
+</script>
+</body>
+</html>

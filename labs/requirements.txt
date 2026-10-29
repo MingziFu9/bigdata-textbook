@@ -1,8 +1,6 @@
-# 《课程名称》实验环境（写明教材编写时实测通过的版本，Python 3.11）
+# 《大数据技术处理技术》本机实验环境（编者实测：Python 3.11～3.13）
 # 安装：pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-# 只列学生实验真正用到的库，版本号必须是编者实际运行过的；需要 GPU 的库单独写在下面并注明
-pandas
-numpy
-matplotlib
-scikit-learn
-jupyter
+# Hadoop、Hive、Kafka、Spark 集群运行在 Docker 里（见 cluster/ 和附录 C），不用 pip 安装
+# 只列学生实验真正用到的库，版本号是编者实际运行过的；后续章节写到时再补充
+numpy==2.5.3          # 生成模拟数据（data/make_data.py）
+pandas==3.0.5         # 生成模拟数据、查看结果

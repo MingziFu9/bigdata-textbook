@@ -1,8 +1,8 @@
 # 站点名、描述、网址和 nav 由 python tools/course.py sync 根据 course.yml 生成，请改 course.yml，不要手改这几项
-site_name: 课程名称
-site_description: 面向成人教育人工智能技术应用专业（专科）的《课程名称》教材，每章配套动手实验
-site_url: https://mingzifu9.github.io/ai-textbook-template/
-repo_url: https://github.com/MingziFu9/ai-textbook-template
+site_name: 大数据技术处理技术
+site_description: 面向成人教育人工智能技术应用专业（专科）的《大数据技术处理技术》教材，12 章 36 个动手实验，在自己电脑上用 Docker 搭 Hadoop/Spark 小集群
+site_url: https://mingzifu9.github.io/bigdata-textbook/
+repo_url: https://github.com/MingziFu9/bigdata-textbook
 docs_dir: docs
 theme:
   name: material
@@ -37,15 +37,27 @@ extra_javascript:
 nav:
   - 首页: index.md
   - 课程描述: course-description.md
-  - "第 1 章 示例章": chapters/01-sample/index.md
+  - "第 1 章 大数据概述与技术生态": chapters/01-overview/index.md
+  - "第 2 章 实验环境：Docker 与 Hadoop 集群": chapters/02-environment/index.md
+  - "第 3 章 HDFS 分布式文件系统": chapters/03-hdfs/index.md
+  - "第 4 章 MapReduce 与 YARN": chapters/04-mapreduce-yarn/index.md
+  - "第 5 章 Hive 数据仓库": chapters/05-hive/index.md
+  - "第 6 章 Spark 入门与 RDD 编程": chapters/06-spark-rdd/index.md
+  - "第 7 章 用 Spark 做数据清洗": chapters/07-data-cleaning/index.md
+  - "第 8 章 DataFrame 与 Spark SQL 数据分析": chapters/08-spark-sql/index.md
+  - "第 9 章 Kafka 与实时数据处理": chapters/09-streaming/index.md
+  - "第 10 章 Spark MLlib 机器学习应用": chapters/10-mllib/index.md
+  - "第 11 章 常见问题与调优": chapters/11-tuning/index.md
+  - "第 12 章 数据可视化、数据合规与综合项目": chapters/12-visualization-project/index.md
   - 交互动画:
     - sims/index.md
-    - "示例动画：点击计数器": sims/example-counter/index.md
+    - "MapReduce 词频统计全流程": sims/mapreduce-wordcount/index.md
+    - "YARN 资源分配": sims/yarn-scheduling/index.md
   - 学习图谱: learning-graph/index.md
   - 常见问题: faq/index.md
-  - 证书考点对照: certificate.md
+  - "在线模拟卷": mock-exam.md
   - 附录:
-    - "附录 A Python 速查": appendix/a-python.md
-    - "附录 B 工具库速查": appendix/b-libraries.md
+    - "附录 A Linux 与 PySpark 速查": appendix/a-linux-pyspark.md
+    - "附录 B 大数据组件速查": appendix/b-components.md
     - "附录 C 实验环境与数据说明": appendix/c-environment.md
     - "附录 D 术语表": appendix/glossary.md

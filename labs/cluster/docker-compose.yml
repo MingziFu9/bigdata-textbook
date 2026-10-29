@@ -1,0 +1,68 @@
+# 本书的 Hadoop 小集群：1 个主节点 + 2 个工作节点
+# 启动：在本文件所在目录运行  docker compose up -d
+# 停止：docker compose down       （加 -v 会同时删除 HDFS 里的数据）
+name: bigdata
+
+x-hadoop: &hadoop
+  image: apache/hadoop:3.4.3
+  user: root                       # 实验环境用 root 运行，省去目录权限的麻烦
+  environment:
+    TZ: Asia/Shanghai
+    HADOOP_HEAPSIZE_MAX: 512m      # 每个守护进程最多用 512 MB 内存
+
+services:
+  master:
+    <<: *hadoop
+    hostname: master
+    command: ["bash", "/opt/start-master.sh"]
+    ports:
+      - "9870:9870"     # NameNode 网页
+      - "8088:8088"     # ResourceManager 网页
+      - "19888:19888"   # 作业历史网页
+    volumes:
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/workers:/opt/hadoop/etc/hadoop/workers:ro
+      - ./start-master.sh:/opt/start-master.sh:ro
+      - ../:/labs                # 把整个 labs 目录挂进容器，实验代码和数据都在 /labs 下
+      - master-data:/data/hadoop
+
+  worker1:
+    <<: *hadoop
+    hostname: worker1
+    command: ["bash", "/opt/start-worker.sh"]
+    depends_on: [master]
+    ports:
+      - "9864:9864"     # 第一个 DataNode 的网页
+      - "8042:8042"     # 第一个 NodeManager 的网页
+    volumes:
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/workers:/opt/hadoop/etc/hadoop/workers:ro
+      - ./start-worker.sh:/opt/start-worker.sh:ro
+      - ../:/labs
+      - worker1-data:/data/hadoop
+
+  worker2:
+    <<: *hadoop
+    hostname: worker2
+    command: ["bash", "/opt/start-worker.sh"]
+    depends_on: [master]
+    volumes:
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/workers:/opt/hadoop/etc/hadoop/workers:ro
+      - ./start-worker.sh:/opt/start-worker.sh:ro
+      - ../:/labs
+      - worker2-data:/data/hadoop
+
+volumes:
+  master-data:
+  worker1-data:
+  worker2-data:

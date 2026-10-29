@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YARN 资源分配</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.ctl label { font-size:13px; }
+.ctl select { padding:3px 6px; font-size:13px; }
+.nodes { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+.node { border:1px solid var(--line); border-radius:8px; padding:6px 8px; background:#fafbfc; }
+.node h3 { font-size:12.5px; margin:0 0 4px; color:var(--muted); font-weight:600; display:flex; justify-content:space-between; }
+.mem { display:flex; height:46px; border:1px solid var(--line); border-radius:4px; overflow:hidden; background:repeating-linear-gradient(45deg,#fff,#fff 4px,#f3f5f7 4px,#f3f5f7 8px); }
+.c { border-right:1px solid #fff; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:11.5px; line-height:1.2; color:#fff; transition:all .25s; overflow:hidden; white-space:nowrap; }
+.c small { font-size:10px; opacity:.9; }
+.jA { background:#3f51b5; } .jA.am { background:#1a237e; }
+.jB { background:#ef6c00; } .jB.am { background:#a84300; }
+.c.red { background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.18) 0 5px,transparent 5px 10px); }
+.st { display:inline-block; padding:0 6px; border-radius:8px; font-size:12px; }
+.s-NEW { background:#eceff1; color:var(--muted); } .s-ACCEPTED { background:#fff3e0; color:#e65100; }
+.s-RUNNING { background:#e8eaf6; color:var(--accent); } .s-FINISHED { background:#e8f5e9; color:#2e7d32; }
+.log { font-size:12.5px; max-height:150px; overflow:auto; margin:0; padding-left:0; list-style:none; }
+.log li.new { color:var(--ink); } .log li { color:var(--muted); }
+.legend span { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-1px; margin:0 3px 0 8px; }
+.prog { display:inline-block; width:80px; height:8px; background:#eceff1; border-radius:4px; vertical-align:middle; overflow:hidden; }
+.prog i { display:block; height:100%; background:var(--pos); }
+</style>
+</head>
+<body>
+<h1>YARN 资源分配：作业怎样分到“内存格子”</h1>
+<div class="sub">集群里每台 NodeManager 的内存被切成一个个容器（Container）。ResourceManager 先给作业分一个容器跑 ApplicationMaster，再由它申请容器跑 Map 和 Reduce 任务。按“下一步”逐秒播放。</div>
+
+<div class="row ctl">
+  <label>节点数 <select id="nn"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+  <label>每节点内存 <select id="nm"><option value="2048" selected>2 GB</option><option value="4096">4 GB</option><option value="8192">8 GB</option></select></label>
+  <label>每个容器 <select id="cm"><option value="512" selected>512 MB</option><option value="1024">1 GB</option><option value="2048">2 GB</option></select></label>
+</div>
+<div class="row ctl">
+  <label>作业 A 输入 <select id="sa"><option value="1">70 MB（1 个 Map）</option><option value="6" selected>700 MB（6 个 Map）</option><option value="16">2 GB（16 个 Map）</option></select></label>
+  <label>Reduce 数 <select id="ra"><option selected>1</option><option>2</option><option>4</option></select></label>
+  <label><input type="checkbox" id="jb"> 第 2 秒再提交作业 B（3 个 Map、1 个 Reduce）</label>
+</div>
+<div class="row">
+  <button class="main" id="next">下一步</button>
+  <button id="play">自动播放</button>
+  <button id="reset">重新开始</button>
+  <span class="note" id="clock" style="margin:0"></span>
+</div>
+
+<div class="box"><h2>ResourceManager：作业列表（和 8088 网页上的 Applications 页对应）</h2>
+  <table class="t" id="apps" style="width:100%"></table>
+</div>
+<div class="box"><h2>NodeManager：每台机器的内存使用 <span class="legend note"><span class="jA" style="background:#1a237e"></span>AM <span style="background:#3f51b5"></span>作业 A 任务 <span style="background:#ef6c00"></span>作业 B 任务 （斜纹 = Reduce）</span></h2>
+  <div class="nodes" id="nodes"></div>
+</div>
+<div class="box"><h2>发生了什么</h2><ul class="log" id="log"></ul></div>
+<div class="note">简化说明：每个 Map 任务运行 3 秒、每个 Reduce 任务运行 2 秒，Map 全部结束后才开始 Reduce；同一队列里先提交的作业优先分配（先来先服务）；所有 AM 合计最多占集群内存的 10%（容量调度器的默认值），但第一个作业总能启动；只按内存分配。真实集群里任务时间各不相同，Reduce 也可以在 Map 快结束时提前启动。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const MAP_T = 3, RED_T = 2;
+let S, timer = null;
+
+function init() {
+  const n = +$('nn').value, mem = +$('nm').value, cm = +$('cm').value;
+  S = { t: 0, cm, nodes: [], jobs: [], log: [] };
+  for (let i = 0; i < n; i++) S.nodes.push({ name: 'worker' + (i + 1), mem, used: 0, cs: [] });
+  S.jobs.push(newJob('A', '小象优选-热门页面', 0, +$('sa').value, +$('ra').value));
+  if ($('jb').checked) S.jobs.push(newJob('B', '小象优选-每小时PV', 2, 3, 1));
+  addLog('作业 A 提交给 ResourceManager' + (S.jobs[1] ? '；作业 B 将在第 2 秒提交' : ''));
+  if (cm > mem) addLog('⚠ 容器比节点内存还大，任何节点都放不下，作业会一直处于 ACCEPTED 状态');
+  stop(); render();
+}
+function newJob(id, name, at, maps, reds) {
+  return { id, name, at, maps, reds, state: at === 0 ? 'ACCEPTED' : 'NEW', am: null, amReady: false,
+           pending: [], doneM: 0, doneR: 0, redAsked: false, tasks: 0, start: null, end: null };
+}
+function addLog(s) { S.log.unshift({ t: S.t, s }); }
+
+function place(job, kind, label, dur) {
+  // 选空闲内存最多的节点；放不下就返回 false，请求继续排队
+  const node = S.nodes.filter(nd => nd.mem - nd.used >= S.cm).sort((a, b) => (b.mem - b.used) - (a.mem - a.used))[0];
+  if (!node) return false;
+  const c = { job: job.id, kind, label, left: dur };
+  node.cs.push(c); node.used += S.cm;
+  addLog(`RM 在 ${node.name} 上给作业 ${job.id} 分配容器，运行 ${label}`);
+  return true;
+}
+function release(node, c) { node.cs.splice(node.cs.indexOf(c), 1); node.used -= S.cm; }
+
+function step() {
+  if (allDone()) return;
+  S.t++;
+  // 1. 运行中的任务向前推进，完成的释放容器
+  for (const nd of S.nodes) for (const c of [...nd.cs]) {
+    if (c.kind === 'AM') continue;
+    if (--c.left <= 0) {
+      const j = job(c.job); release(nd, c);
+      if (c.kind === 'M') j.doneM++; else j.doneR++;
+      addLog(`作业 ${j.id} 的 ${c.label} 完成，释放 ${nd.name} 上 ${S.cm} MB 内存`);
+    }
+  }
+  // 2. 新作业到达
+  for (const j of S.jobs) if (j.state === 'NEW' && S.t >= j.at) { j.state = 'ACCEPTED'; addLog(`作业 ${j.id} 提交给 ResourceManager，等待分配 AM 容器`); }
+  // 3. 各作业的 ApplicationMaster 根据进度提出请求或结束
+  for (const j of S.jobs) {
+    if (j.state !== 'RUNNING') continue;
+    if (!j.amReady) { j.amReady = true; for (let i = 1; i <= j.maps; i++) j.pending.push(['M', 'Map ' + i, MAP_T]);
+      addLog(`作业 ${j.id} 的 AM 启动，向 RM 申请 ${j.maps} 个容器运行 Map`); continue; }
+    if (j.doneM === j.maps && !j.redAsked) { j.redAsked = true; for (let i = 1; i <= j.reds; i++) j.pending.push(['R', 'Reduce ' + i, RED_T]);
+      addLog(`作业 ${j.id} 的 Map 全部完成，AM 申请 ${j.reds} 个容器运行 Reduce`); }
+    if (j.redAsked && j.doneR === j.reds) {
+      const nd = S.nodes.find(n => n.cs.includes(j.am)); release(nd, j.am); j.am = null;
+      j.state = 'FINISHED'; j.end = S.t; addLog(`作业 ${j.id} 全部完成（FINISHED），AM 退出，共用时 ${S.t - j.start} 秒`);
+    }
+  }
+  // 4. ResourceManager 按提交顺序分配空闲内存
+  for (const j of S.jobs) {
+    if (j.state === 'ACCEPTED') {
+      // 容量调度器默认只允许 AM 占集群内存的 10%（maximum-am-resource-percent=0.1），但总会放行第一个作业
+      const total = S.nodes.reduce((s, n) => s + n.mem, 0);
+      const amUsed = S.nodes.reduce((s, n) => s + n.cs.filter(c => c.kind === 'AM').length, 0) * S.cm;
+      if (amUsed > 0 && amUsed + S.cm > total * 0.1) {
+        if (!j.amWait) { j.amWait = true; addLog(`作业 ${j.id} 停在 ACCEPTED：正在运行的 AM 已用 ${amUsed} MB，再加一个就超过集群内存的 10%（${Math.round(total * 0.1)} MB），要等前面的作业结束`); }
+        continue;
+      }
+      if (place(j, 'AM', 'ApplicationMaster', 0)) {
+        const nd = S.nodes.find(n => n.cs.some(c => c.job === j.id && c.kind === 'AM'));
+        j.am = nd.cs.find(c => c.job === j.id && c.kind === 'AM'); j.state = 'RUNNING'; j.start = j.start ?? S.t;
+      } else continue;
+    }
+    while (j.state === 'RUNNING' && j.pending.length) {
+      const [k, label, d] = j.pending[0];
+      if (!place(j, k, label, d)) break;
+      j.pending.shift();
+    }
+  }
+  const busy = S.nodes.some(n => n.cs.some(c => c.kind !== 'AM'));
+  if (!busy && S.jobs.some(j => j.state === 'RUNNING' && j.amReady && j.pending.length)) {
+    S.stuck = true; stop();
+    addLog('⚠ 卡住了：空闲内存放不下任何一个任务容器，又没有任务在运行、不会再释放内存。作业会一直停在 RUNNING、进度 0%。请减小容器内存或增加节点');
+    return render();
+  }
+  if (!S.log.length || S.log[0].t !== S.t) addLog('没有新的分配，各任务继续运行');
+  if (allDone()) { stop(); addLog('所有作业完成'); }
+  render();
+}
+const job = id => S.jobs.find(j => j.id === id);
+const allDone = () => S.stuck || S.jobs.every(j => j.state === 'FINISHED');
+
+function render() {
+  const total = S.nodes.reduce((s, n) => s + n.mem, 0), used = S.nodes.reduce((s, n) => s + n.used, 0);
+  $('clock').textContent = `第 ${S.t} 秒 · 集群内存已用 ${used} / ${total} MB`;
+  let h = '<tr><th>作业</th><th>名称</th><th>状态</th><th>运行容器</th><th>排队请求</th><th>进度</th></tr>';
+  for (const j of S.jobs) {
+    const run = S.nodes.reduce((s, n) => s + n.cs.filter(c => c.job === j.id).length, 0);
+    const p = (j.doneM + j.doneR) / (j.maps + j.reds);
+    h += `<tr><td>${j.id}</td><td>${j.name}</td><td><span class="st s-${j.state}">${j.state}</span></td><td>${run}</td>
+      <td>${j.state === 'ACCEPTED' ? '等 AM 容器' : j.pending.length}</td>
+      <td><span class="prog"><i style="width:${p * 100}%"></i></span> ${j.doneM}/${j.maps} Map，${j.doneR}/${j.reds} Reduce</td></tr>`;
+  }
+  $('apps').innerHTML = h;
+  $('nodes').innerHTML = S.nodes.map(n => {
+    const cells = n.cs.map(c => `<div class="c j${c.job} ${c.kind === 'AM' ? 'am' : ''} ${c.kind === 'R' ? 'red' : ''}" style="width:${S.cm / n.mem * 100}%">
+      <b>${c.job}·${c.kind === 'AM' ? 'AM' : c.label.replace('Reduce ', 'R').replace('Map ', 'M')}</b>${c.kind === 'AM' ? '' : `<small>剩 ${c.left} 秒</small>`}</div>`).join('');
+    return `<div class="node"><h3><span>${n.name}</span><span>${n.used} / ${n.mem} MB</span></h3><div class="mem">${cells}</div></div>`;
+  }).join('');
+  $('log').innerHTML = S.log.slice(0, 40).map(e => `<li class="${e.t === S.t ? 'new' : ''}">第 ${e.t} 秒：${e.s}</li>`).join('');
+  $('next').disabled = allDone();
+}
+function stop() { clearInterval(timer); timer = null; $('play').textContent = '自动播放'; }
+$('next').onclick = () => { stop(); step(); };
+$('play').onclick = () => { if (timer) return stop(); if (allDone()) init(); timer = setInterval(step, 900); $('play').textContent = '暂停'; };
+$('reset').onclick = init;
+for (const id of ['nn', 'nm', 'cm', 'sa', 'ra', 'jb']) $(id).onchange = init;
+init();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>
