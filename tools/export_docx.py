@@ -65,8 +65,18 @@ def sim_figure(m):
     return "\n".join(out)
 
 
-def convert(md):
+def image_figure(m, page):
+    src = (DOCS / page).parent / m.group(2)
+    if src.suffix == ".svg" and src.with_suffix(".png").exists():   # Word 对 SVG 支持不好，有同名 PNG 就用 PNG
+        src = src.with_suffix(".png")
+    if not src.exists():
+        return f"> 【图】{m.group(1)}：请在网页版查看。"
+    return f"![]({src.resolve().as_posix()}){{WIDTH=80%}}\n\n*{m.group(1)}*"
+
+
+def convert(md, page="index.md"):
     md = re.sub(r"\A---\n.*?\n---\n", "", md, flags=re.S)
+    md = re.sub(r"!\[([^\]]*)\]\(((?!https?:)[^)\s]+)\)(\{[^}]*\})?", lambda m: image_figure(m, page), md)
     md = re.sub(r"```mermaid\n(.*?)```", mermaid_figure, md, flags=re.S)
     md = re.sub(r'<iframe[^>]*src="[^"]*sims/([\w-]+)/main\.html"[^>]*title="([^"]*)"[^>]*></iframe>', sim_figure, md)
     md = re.sub(r'<iframe[^>]*title="([^"]*)"[^>]*></iframe>', r"> 【交互动画】\1：请在网页版查看。", md)
@@ -103,12 +113,12 @@ def main():
     else:
         pages, name = nav_pages(), course()["title"]
     title = yaml.load((ROOT / "mkdocs.yml").read_text(encoding="utf-8"), Loader=_Loader)["site_name"]
-    body = "\n\n".join(convert((DOCS / p).read_text(encoding="utf-8")) for p in pages)
+    body = "\n\n".join(convert((DOCS / p).read_text(encoding="utf-8"), p) for p in pages)
     tmp = OUT / f"{name}.md"
     tmp.write_text(f"---\ntitle: {title}\n---\n\n{body}", encoding="utf-8")
     dst = OUT / f"{name}.docx"
     subprocess.run(["pandoc", str(tmp), "-f", "markdown+tex_math_single_backslash", "-o", str(dst),
-                    "--toc", "--toc-depth=2", "--resource-path", str(DOCS)], check=True)
+                    "--toc", "--toc-depth=2", "-M", "toc-title=目录", "--resource-path", str(DOCS)], check=True)
     print(f"已导出 {dst.relative_to(ROOT)}（{len(pages)} 页）")
     if "--pdf" in sys.argv:
         subprocess.run(["soffice", "--headless", "--convert-to", "pdf", "--outdir", str(OUT), str(dst)], check=True)

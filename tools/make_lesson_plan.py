@@ -281,7 +281,7 @@ def build(num):
         res.append("交互动画：" + "；".join(f"{t}（{site_url(c)}sims/{n}/）" for n, t in sims))
     labs = lab_list(text, c["lab_word"])
     if labs:
-        res.append(f"{c['lab_word']}：" + "；".join(f"{c['lab_word']} {n} {t.lstrip('★☆ ')}" for n, t, _ in labs) + f"（代码在 labs/ch{num:02d}/）")
+        res.append(f"{c['lab_word']}：" + "；".join(f"{c['lab_word']} {n} {t.lstrip('★☆ ')}" for n, t, _ in labs) + (f"（代码在 labs/ch{num:02d}/）" if (ROOT / f"labs/ch{num:02d}").is_dir() else ""))
     res += plan.get("resources", [])
     bullet_lines(doc, res)
 
