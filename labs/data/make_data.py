@@ -184,7 +184,7 @@ def make_reviews(rng, n, users, products):
         "rating": rating,
         "content": content,
     })
-    # 约 5% 的评论是“刷单”复制的近似重复评论，第 10 章用 MinHash 找出来
+    # 约 5% 的评论是“刷单”复制的近似重复评论，第 7 章清洗时把它们找出来
     dup = rng.choice(n, n // 20, replace=False)
     src = rng.choice(n, n // 20)
     df.loc[dup, "content"] = df.loc[src, "content"].to_numpy() + "！"

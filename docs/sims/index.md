@@ -9,5 +9,8 @@ description: 本书配套的交互动画，可以在浏览器里直接操作，�
 
 | 章 | 动画 | 你可以做什么 |
 |---|---|---|
+| 第 1 章 | [单机与集群耗时估算器](cluster-estimator/index.md) | 改变数据量和机器数，比较一台电脑和集群各要多久，找出值得用集群的数据量 |
+| 第 2 章 | [集群地图](cluster-map/index.md) | 点击每个容器和端口，看集群里运行着什么，模拟加节点、停节点 |
+| 第 3 章 | [HDFS 切块与副本](hdfs-blocks/index.md) | 上传文件看它被切块、放副本，停掉机器看副本怎样补齐 |
 | 第 4 章 | [MapReduce 词频统计全流程](mapreduce-wordcount/index.md) | 输入几行文字，一步一步看 Map、Shuffle、Reduce 的中间数据，比较加不加 Combiner |
 | 第 4 章 | [YARN 资源分配](yarn-scheduling/index.md) | 调整节点、内存和作业规模，逐秒观察容器怎样分配，找出作业卡住的原因 |

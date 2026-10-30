@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>集群地图</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.host { border:2px solid #90a4ae; border-radius:10px; padding:8px 10px 10px; background:#fafbfc; }
+.host > .hd { font-size:12.5px; color:var(--muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px; }
+.ports { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+.port { font-size:12px; padding:2px 8px; border-radius:10px; background:#fff; border:1px solid var(--line); cursor:pointer; }
+.port.hl { border-color:var(--accent); background:var(--soft); }
+.net { border:1.5px dashed #b0bec5; border-radius:8px; padding:8px; }
+.net > .hd { font-size:12px; color:var(--muted); margin-bottom:6px; }
+.nodes { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+.ct { border:2px solid var(--line); border-radius:8px; padding:6px 8px; background:#fff; cursor:pointer; transition:all .2s; position:relative; }
+.ct:hover { border-color:#9fa8da; }
+.ct.sel { border-color:var(--accent); box-shadow:0 0 0 3px var(--soft); }
+.ct.off { opacity:.45; border-style:dashed; }
+.ct.hl { border-color:var(--warn); }
+.ct h3 { margin:0; font-size:13.5px; display:flex; justify-content:space-between; align-items:center; }
+.ct .role { font-size:11.5px; color:var(--muted); }
+.proc { display:block; font-size:11.5px; margin-top:3px; padding:1px 6px; border-radius:4px; color:#fff; }
+.hdfs { background:#2e7d32; } .yarn { background:#3f51b5; } .other { background:#78909c; }
+.dot { width:9px; height:9px; border-radius:50%; background:var(--pos); display:inline-block; }
+.ct.off .dot { background:var(--neg); }
+.vol { font-size:11px; color:var(--muted); margin-top:4px; }
+.stat { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; }
+.stat b { font-variant-numeric:tabular-nums; }
+#detail table.t td:first-child { white-space:nowrap; }
+#detail table.t td { text-align:left; }
+</style>
+</head>
+<body>
+<h1>集群地图：随书 Hadoop 集群里都有什么</h1>
+<div class="sub">点一个容器，看它运行哪些进程、开了哪些端口、数据存在哪里；点上方的端口，看浏览器访问它时连到了哪个容器。下面的按钮可以模拟加节点和停节点。</div>
+
+<div class="row">
+  <button id="w3">加入 worker3（第 3 个工作节点）</button>
+  <button id="stop2">停掉 worker2</button>
+  <button id="reset">恢复默认</button>
+</div>
+
+<div class="host">
+  <div class="hd"><span>你的电脑（宿主机）：Docker Desktop 或 Docker Engine</span><span>浏览器访问 localhost 的这些端口 ↓</span></div>
+  <div class="ports" id="ports"></div>
+  <div class="net"><div class="hd">Docker 网络 bigdata_default：容器之间用名字互相访问（master、worker1……）</div>
+    <div class="nodes" id="nodes"></div>
+  </div>
+  <div class="vol">共享目录：宿主机的 labs/ 挂载到每个容器的 /labs；配置文件从 labs/cluster/conf/ 挂载到 /opt/hadoop/etc/hadoop/</div>
+</div>
+
+<div class="box"><h2>集群状态（相当于 9870 和 8088 首页上的数字）</h2><div class="stat" id="stat"></div></div>
+<div class="box" id="detail"></div>
+<div class="note">与随书 <code>labs/cluster/docker-compose.yml</code> 一致：镜像 apache/hadoop:3.4.3，每个工作节点给 YARN 2 GB 内存、2 个 CPU 核。worker3 来自 <code>docker-compose.worker3.yml</code>，实验 2-3 才会启动。停掉节点后，NameNode 要等约 1.5 分钟没收到心跳才把它判为“死亡”（本书把检查间隔改短了，默认要 10 分钟以上），这里直接显示判定后的结果。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const PORTS = [
+  { p: 9870, to: 'master', name: 'NameNode 网页', what: '看 HDFS：DataNode 列表、浏览文件、数据块' },
+  { p: 8088, to: 'master', name: 'ResourceManager 网页', what: '看 YARN：节点、作业、资源' },
+  { p: 19888, to: 'master', name: 'JobHistory 网页', what: '看已结束作业的计数器和日志' },
+  { p: 14000, to: 'master', name: 'HttpFS 网关', what: '让宿主机上的 Python 读写 HDFS（第 3 章）' },
+  { p: 8020, to: 'master', name: 'NameNode 服务端口', what: '程序访问 HDFS 的地址 hdfs://master:8020（只在网络内部用）', inner: true },
+];
+const BASE = {
+  master: { role: '主节点', procs: [['NameNode', 'hdfs', '管理 HDFS 的“目录”：每个文件分成哪些块、每块存在哪台机器'], ['ResourceManager', 'yarn', '管理整个集群的内存和 CPU，给作业分配容器'], ['JobHistoryServer', 'other', '保存已完成作业的信息，19888 网页'], ['HttpFSServer', 'other', 'HDFS 的网页接口网关，14000 端口']], vol: 'master-data → /data/hadoop（NameNode 的元数据：目录树和块清单）' },
+  worker: { role: '工作节点', procs: [['DataNode', 'hdfs', '在本机硬盘上存放数据块，定时向 NameNode 报告“我还活着、我有哪些块”'], ['NodeManager', 'yarn', '管理本机的内存和 CPU，按 ResourceManager 的安排启动容器运行任务']] },
+};
+let S;
+function init() {
+  S = { sel: 'master', hl: null, nodes: [
+    { id: 'master', kind: 'master', on: true, show: true },
+    { id: 'worker1', kind: 'worker', on: true, show: true },
+    { id: 'worker2', kind: 'worker', on: true, show: true },
+    { id: 'worker3', kind: 'worker', on: true, show: false },
+  ] };
+  render();
+}
+const nd = id => S.nodes.find(n => n.id === id);
+function render() {
+  $('ports').innerHTML = PORTS.filter(p => !p.inner).map(p => `<span class="port ${S.hl === p.p ? 'hl' : ''}" data-p="${p.p}">localhost:${p.p} ${p.name}</span>`).join('');
+  $('nodes').innerHTML = S.nodes.filter(n => n.show).map(n => {
+    const b = BASE[n.kind];
+    return `<div class="ct ${S.sel === n.id ? 'sel' : ''} ${n.on ? '' : 'off'} ${S.hl && n.id === 'master' ? 'hl' : ''}" data-id="${n.id}">
+      <h3><span>${n.id}</span><span class="dot" title="${n.on ? '运行中' : '已停止'}"></span></h3>
+      <div class="role">${b.role}${n.on ? '' : ' · 已停止'}</div>
+      ${b.procs.map(p => `<span class="proc ${p[1]}">${p[0]}</span>`).join('')}</div>`;
+  }).join('');
+  const ws = S.nodes.filter(n => n.kind === 'worker' && n.show), live = ws.filter(n => n.on);
+  $('stat').innerHTML = `<span>Live datanodes：<b>${live.length}</b></span><span>Dead datanodes：<b>${ws.length - live.length}</b></span>
+    <span>YARN Active Nodes：<b>${live.length}</b></span><span>YARN 总内存：<b>${live.length * 2} GB</b>，总 CPU：<b>${live.length * 2} 核</b></span>
+    <span>副本数 2 时，最多能坏 <b>${Math.max(0, Math.min(1, live.length - 1))}</b> 台而不丢数据</span>`;
+  detail();
+  document.querySelectorAll('.ct').forEach(e => e.onclick = () => { S.sel = e.dataset.id; S.hl = null; render(); });
+  document.querySelectorAll('.port').forEach(e => e.onclick = () => { S.hl = +e.dataset.p; S.sel = 'master'; render(); });
+  $('w3').disabled = nd('worker3').show; $('stop2').textContent = nd('worker2').on ? '停掉 worker2' : '重新启动 worker2';
+}
+function detail() {
+  if (S.hl) {
+    const p = PORTS.find(x => x.p === S.hl);
+    $('detail').innerHTML = `<h2>浏览器打开 http://localhost:${p.p} 时发生了什么</h2>
+      <ol style="margin:0;padding-left:20px;font-size:13.5px"><li>浏览器把请求发到你电脑的 ${p.p} 端口；</li>
+      <li>Docker 按 docker-compose.yml 中 <code>ports: - "${p.p}:${p.p}"</code> 这一行，把请求转给 <b>${p.to}</b> 容器的 ${p.p} 端口；</li>
+      <li>${p.to} 容器里的 ${p.name.replace(' 网页', '').replace(' 网关', '')} 进程回应，你看到的是：${p.what}。</li></ol>
+      <div class="note">如果打不开：先 <code>docker compose ps</code> 看 master 是不是 Up；再看端口是不是被别的软件占了（第 2 章排错表）。</div>`;
+    return;
+  }
+  const n = nd(S.sel), b = BASE[n.kind];
+  const ports = n.kind === 'master' ? PORTS.map(p => `${p.p}${p.inner ? '（内部）' : ''}`).join('、') : (n.id === 'worker1' ? '9864（DataNode 网页）、8042（NodeManager 网页），映射到宿主机的同号端口' : '9864（DataNode 网页）、8042（NodeManager 网页），只在网络内部可见（宿主机的这两个端口已经给了 worker1）');
+  const vol = n.kind === 'master' ? b.vol : `${n.id}-data → /data/hadoop（DataNode 存放的数据块）`;
+  $('detail').innerHTML = `<h2>${n.id}：${b.role}${n.on ? '' : '（已停止）'}</h2>
+    <table class="t" style="width:100%">${b.procs.map(p => `<tr><td><span class="proc ${p[1]}" style="display:inline-block">${p[0]}</span></td><td>${p[2]}</td></tr>`).join('')}
+    <tr><td>端口</td><td>${ports}</td></tr><tr><td>数据卷</td><td>${vol}</td></tr>
+    <tr><td>检查命令</td><td><code>docker compose exec ${n.id} jps</code> 应列出 ${b.procs.filter(p => !p[0].startsWith('HttpFS')).map(p => p[0]).join('、')}${n.kind === 'master' ? '（HttpFS 显示为 HttpFSServerWebServer）' : ''}</td></tr></table>
+    ${n.on ? '' : `<div class="msg bad">${n.id} 停止后：它上面的数据块暂时少了一份副本，NameNode 会让其他 DataNode 复制补齐；正在它上面运行的任务会被 YARN 换到别的节点重跑。</div>`}`;
+}
+$('w3').onclick = () => { nd('worker3').show = true; S.sel = 'worker3'; S.hl = null; render(); };
+$('stop2').onclick = () => { const w = nd('worker2'); w.on = !w.on; S.sel = 'worker2'; S.hl = null; render(); };
+$('reset').onclick = init;
+init();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

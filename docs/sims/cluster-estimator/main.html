@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>单机与集群耗时估算器</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.ctl { display:grid; grid-template-columns:7.5em 1fr 7.5em; gap:4px 8px; align-items:center; font-size:13px; }
+.ctl .v { text-align:right; font-weight:600; font-variant-numeric:tabular-nums; }
+.ctl select { padding:3px 6px; font-size:13px; }
+.res { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.card { border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+.card.win { border-color:var(--pos); background:#f1f8e9; }
+.card .k { font-size:12px; color:var(--muted); }
+.card .big { font-variant-numeric:tabular-nums; }
+.parts { display:flex; height:16px; border-radius:3px; overflow:hidden; margin-top:6px; background:#eceff1; }
+.parts i { display:block; height:100%; }
+.p-start { background:#ffb74d; } .p-read { background:#3f51b5; } .p-sum { background:#90a4ae; }
+.legend span { display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px; margin:0 3px 0 8px; }
+svg .axis { stroke:#90a4ae; stroke-width:1; } svg .grid { stroke:#eceff1; }
+svg .lbl { font-size:11px; fill:#78909c; }
+@media (max-width:560px) { .res { grid-template-columns:1fr; } .ctl { grid-template-columns:6em 1fr 6.5em; } }
+</style>
+</head>
+<body>
+<h1>单机与集群耗时估算器：什么时候才值得用集群？</h1>
+<div class="sub">拖动滑块改变数据量和机器数量，比较“一台电脑处理”和“集群一起处理”各要多久。集群每次计算都要先花时间启动、最后还要汇总，所以数据小的时候反而更慢。</div>
+
+<div class="row ex"><span class="lbl">试一试：</span>
+  <button data-p="70,10,1,20">70 MB 一天的日志</button>
+  <button data-p="1048576,100,0,20">1 TB 一年的日志</button>
+  <button data-p="1073741824,1000,0,20">1 PB 全公司数据</button>
+</div>
+
+<div class="ctl">
+  <label for="sz">数据量</label><input type="range" id="sz" min="0" max="1000" value="350"><span class="v" id="szv"></span>
+  <label for="nn">集群机器数</label><input type="range" id="nn" min="0" max="300" value="100"><span class="v" id="nnv"></span>
+  <label for="sp">每台处理速度</label><select id="sp">
+    <option value="150">机械硬盘读取，约 150 MB/秒</option>
+    <option value="10">Python 逐行处理，约 10 MB/秒</option>
+    <option value="500">固态硬盘读取，约 500 MB/秒</option>
+  </select><span></span>
+  <label for="st">集群启动开销</label><select id="st">
+    <option value="20">MapReduce 作业，约 20 秒</option>
+    <option value="5">Spark 作业，约 5 秒</option>
+    <option value="60">排队等资源，约 60 秒</option>
+  </select><span></span>
+</div>
+
+<div class="res" style="margin-top:10px">
+  <div class="card" id="c1"><div class="k">一台电脑</div><div class="big" id="t1"></div><div class="parts" id="b1"></div><div class="note" id="n1" style="margin-top:4px"></div></div>
+  <div class="card" id="cN"><div class="k" id="kN"></div><div class="big" id="tN"></div><div class="parts" id="bN"></div><div class="note" id="nN" style="margin-top:4px"></div></div>
+</div>
+<div class="note legend"><span class="p-start"></span>启动与调度 <span class="p-read"></span>读取和处理数据 <span class="p-sum"></span>汇总结果（按处理时间的 5% 估算，至少 1 秒）</div>
+<div class="msg" id="msg"></div>
+
+<div class="box"><h2>数据量从 1 MB 到 1 PB，两条线在哪里交叉？（横纵坐标都是“每格放大 10 倍”）</h2>
+  <svg id="ch" viewBox="0 0 640 260" width="100%" role="img" aria-label="耗时随数据量变化的对比图"></svg>
+</div>
+<div class="note">估算公式：一台电脑耗时 = 数据量 ÷ 处理速度；集群耗时 = 启动开销 + 数据量 ÷（机器数 × 处理速度）+ 汇总时间。这里假设数据已经均匀地存放在每台机器上（第 3 章的 HDFS 就是这样存的），只用来比较数量级，不是精确预测。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const sizeMB = v => Math.pow(10, v / 1000 * 9);            // 1 MB ～ 1 PB（10^9 MB）
+const nodes = v => Math.max(2, Math.round(Math.pow(10, v / 100)));  // 2 ～ 1000 台
+function fmtSize(mb) {
+  const u = [['PB', 1024 ** 3], ['TB', 1024 ** 2], ['GB', 1024], ['MB', 1]];
+  for (const [n, k] of u) if (mb >= k) return (mb / k >= 100 ? Math.round(mb / k) : +(mb / k).toFixed(1)) + ' ' + n;
+  return mb.toFixed(1) + ' MB';
+}
+function fmtT(s) {
+  if (s < 60) return s.toFixed(s < 10 ? 1 : 0) + ' 秒';
+  if (s < 3600) return (s / 60).toFixed(1) + ' 分钟';
+  if (s < 86400) return (s / 3600).toFixed(1) + ' 小时';
+  if (s < 86400 * 365) return (s / 86400).toFixed(1) + ' 天';
+  return (s / 86400 / 365).toFixed(1) + ' 年';
+}
+function single(mb, sp) { return { read: mb / sp, start: 0, sum: 0 }; }
+function cluster(mb, sp, n, st) { const r = mb / (n * sp); return { start: st, read: r, sum: Math.max(1, r * 0.05) }; }
+const tot = p => p.start + p.read + p.sum;
+
+function bar(p, max) {
+  const w = x => (x / max * 100).toFixed(2) + '%';
+  return `<i class="p-start" style="width:${w(p.start)}"></i><i class="p-read" style="width:${w(p.read)}"></i><i class="p-sum" style="width:${w(p.sum)}"></i>`;
+}
+function render() {
+  const mb = sizeMB(+$('sz').value), n = nodes(+$('nn').value), sp = +$('sp').value, st = +$('st').value;
+  $('szv').textContent = fmtSize(mb); $('nnv').textContent = n + ' 台';
+  const a = single(mb, sp), b = cluster(mb, sp, n, st), ta = tot(a), tb = tot(b), max = Math.max(ta, tb);
+  $('t1').textContent = fmtT(ta); $('tN').textContent = fmtT(tb); $('kN').textContent = `${n} 台机器的集群`;
+  $('b1').innerHTML = bar(a, max); $('bN').innerHTML = bar(b, max);
+  $('c1').classList.toggle('win', ta <= tb); $('cN').classList.toggle('win', tb < ta);
+  $('n1').textContent = mb > 16 * 1024 ? `数据比 16 GB 内存大 ${Math.round(mb / 16 / 1024)} 倍，只能分批读入，硬盘也可能放不下` : '数据能整个放进 16 GB 内存';
+  $('nN').textContent = `启动 ${fmtT(b.start)}，每台只处理 ${fmtSize(mb / n)}`;
+  // 交叉点：st + 1.05x/(n·sp) = x/sp 近似
+  const cross = st * sp / (1 - 1.05 / n);
+  let m;
+  if (ta <= tb) m = `<b class="bad">这么点数据，用集群反而慢 ${fmtT(tb - ta)}</b>：时间主要花在启动上。数据超过约 ${fmtSize(cross)} 以后，集群才开始占优。`;
+  else m = `<b class="ok">集群快了 ${(ta / tb).toFixed(ta / tb >= 10 ? 0 : 1)} 倍</b>，把 ${fmtT(ta)} 缩短到 ${fmtT(tb)}。` +
+           (tb > 3600 ? ' 即使这样还要超过 1 小时，可以再加机器。' : '') +
+           (n >= 10 && b.start > b.read ? ' 不过启动开销已经比处理数据还久，再加机器意义不大。' : '');
+  $('msg').innerHTML = m;
+  chart(mb, n, sp, st, cross);
+}
+function chart(mb, n, sp, st, cross) {
+  const W = 640, H = 260, L = 52, R = 12, T = 12, B = 34;
+  const lx = v => L + (Math.log10(v) / 9) * (W - L - R);          // 1 MB ～ 1 PB
+  const tmin = -1, tmax = 9;                                      // 0.1 秒 ～ 10^9 秒
+  const ly = t => T + (1 - (Math.log10(Math.max(t, 0.1)) - tmin) / (tmax - tmin)) * (H - T - B);
+  let s = '';
+  const xt = [[1, '1MB'], [1024, '1GB'], [1024 ** 2, '1TB'], [1024 ** 3, '1PB']];
+  const yt = [[1, '1秒'], [60, '1分'], [3600, '1时'], [86400, '1天'], [86400 * 365, '1年']];
+  for (const [v, t] of xt) s += `<line class="grid" x1="${lx(v)}" x2="${lx(v)}" y1="${T}" y2="${H - B}"/><text class="lbl" x="${lx(v)}" y="${H - B + 14}" text-anchor="middle">${t}</text>`;
+  for (const [v, t] of yt) s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${ly(v)}" y2="${ly(v)}"/><text class="lbl" x="${L - 4}" y="${ly(v) + 4}" text-anchor="end">${t}</text>`;
+  s += `<line class="axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/><line class="axis" x1="${L}" x2="${L}" y1="${T}" y2="${H - B}"/>`;
+  s += `<text class="lbl" x="${(L + W) / 2}" y="${H - 4}" text-anchor="middle">数据量</text>`;
+  let p1 = '', p2 = '';
+  for (let i = 0; i <= 90; i++) {
+    const v = Math.pow(10, i / 10);
+    p1 += (i ? 'L' : 'M') + lx(v).toFixed(1) + ' ' + ly(tot(single(v, sp))).toFixed(1);
+    p2 += (i ? 'L' : 'M') + lx(v).toFixed(1) + ' ' + ly(tot(cluster(v, sp, n, st))).toFixed(1);
+  }
+  s += `<path d="${p1}" fill="none" stroke="#ef6c00" stroke-width="2.2"/><path d="${p2}" fill="none" stroke="#3f51b5" stroke-width="2.2"/>`;
+  if (cross > 1 && cross < 1024 ** 3) s += `<line x1="${lx(cross)}" x2="${lx(cross)}" y1="${T}" y2="${H - B}" stroke="#43a047" stroke-dasharray="4 3"/><text class="lbl" x="${lx(cross) + 4}" y="${T + 12}" fill="#2e7d32">交叉点约 ${fmtSize(cross)}</text>`;
+  s += `<circle cx="${lx(mb)}" cy="${ly(tot(single(mb, sp)))}" r="4.5" fill="#ef6c00"/><circle cx="${lx(mb)}" cy="${ly(tot(cluster(mb, sp, n, st)))}" r="4.5" fill="#3f51b5"/>`;
+  s += `<text x="${W - R - 4}" y="${H - B - 26}" text-anchor="end" font-size="12" fill="#ef6c00">— 一台电脑</text><text x="${W - R - 4}" y="${H - B - 10}" text-anchor="end" font-size="12" fill="#3f51b5">— ${n} 台集群</text>`;
+  $('ch').innerHTML = s;
+}
+function setSize(mb) { $('sz').value = Math.round(Math.log10(mb) / 9 * 1000); }
+function setNodes(n) { $('nn').value = Math.round(Math.log10(n) * 100); }
+document.querySelectorAll('.ex button').forEach(b => b.onclick = () => {
+  const [mb, n, sp, st] = b.dataset.p.split(',').map(Number);
+  setSize(mb); setNodes(n); $('sp').value = sp === 1 ? 10 : 150; $('st').value = st; render();
+});
+for (const id of ['sz', 'nn', 'sp', 'st']) $(id).oninput = render;
+setSize(70); setNodes(10); render();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

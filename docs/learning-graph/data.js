@@ -1,9 +1,55 @@
 // 学习图谱数据：由编者整理，概念与定义取自附录 D 术语表
 // 改完后运行 python tools/graph_text.py，检查数据并更新 index.md 里的文字版
-var CATS = ["计算模型", "编程与统计", "资源调度"];
+var CATS = ["计算模型", "编程与统计", "资源调度", "大数据基础", "实验环境", "分布式存储"];
 var CHAPTERS = ["", "概述与生态", "Docker 与集群", "HDFS", "MapReduce 与 YARN", "Hive", "Spark 与 RDD", "数据清洗", "Spark SQL", "实时处理", "MLlib", "问题与调优", "可视化与项目"];
 var CHDIRS = ["", "01-overview", "02-environment", "03-hdfs", "04-mapreduce-yarn", "05-hive", "06-spark-rdd", "07-data-cleaning", "08-spark-sql", "09-streaming", "10-mllib", "11-tuning", "12-visualization-project"];
 var NODES = [
+  {"id": "大数据", "ch": 1, "cat": 3, "a": "g-大数据", "d": "规模大、产生快、种类多，用传统单机软件难以在可接受时间内存储和处理的数据集合，也指处理这类数据的技术"},
+  {"id": "5V 特征", "ch": 1, "cat": 3, "a": "g-5V-特征", "d": "描述大数据的五个方面：量大（Volume）、快（Velocity）、多样（Variety）、价值密度低（Value）、真实性（Veracity）"},
+  {"id": "结构化数据", "ch": 1, "cat": 3, "a": "g-结构化数据", "d": "有固定的行和列、每列含义和类型事先规定好的数据，可以直接放进数据库表"},
+  {"id": "半结构化数据", "ch": 1, "cat": 3, "a": "g-半结构化数据", "d": "有一定格式但不像表格那样整齐、不同记录字段可以不同的数据"},
+  {"id": "非结构化数据", "ch": 1, "cat": 3, "a": "g-非结构化数据", "d": "没有预先定义格式的数据，要借助人工智能技术才能变成可统计的信息"},
+  {"id": "纵向扩展", "ch": 1, "cat": 3, "a": "g-纵向扩展", "d": "通过给一台机器加内存、换更快的硬盘和 CPU 来提高处理能力"},
+  {"id": "横向扩展", "ch": 1, "cat": 3, "a": "g-横向扩展", "d": "通过增加机器数量、组成集群来提高处理能力"},
+  {"id": "集群", "ch": 1, "cat": 3, "a": "g-集群", "d": "通过网络连接、由软件统一协调、一起完成存储和计算任务的一组计算机"},
+  {"id": "节点", "ch": 1, "cat": 3, "a": "g-节点", "d": "集群中的一台机器（在随书集群中是一个 Docker 容器），分为主节点和工作节点"},
+  {"id": "移动计算", "ch": 1, "cat": 3, "a": "g-移动计算", "d": "把计算程序发送到存放数据的机器上就地运行，而不是把数据集中搬到一处再算的做法"},
+  {"id": "大数据处理流程", "ch": 1, "cat": 3, "a": "g-大数据处理流程", "d": "数据从产生到产生价值经过的五个步骤：采集、存储、计算、分析与挖掘、可视化"},
+  {"id": "批处理", "ch": 1, "cat": 3, "a": "g-批处理", "d": "把一段时间内积累的数据一次性处理完的方式，结果有一定延迟"},
+  {"id": "流处理", "ch": 1, "cat": 3, "a": "g-流处理", "d": "数据一产生就在几秒内处理的方式，也叫实时处理"},
+  {"id": "Hadoop", "ch": 1, "cat": 3, "a": "g-Hadoop", "d": "开源的分布式存储和计算框架，核心包括 HDFS、MapReduce 和 YARN，围绕它形成了庞大的大数据生态"},
+  {"id": "本地模式", "ch": 1, "cat": 3, "a": "g-本地模式", "d": "Spark 在一台电脑上运行、用多个 CPU 核模拟集群的方式，不需要安装 Hadoop"},
+  {"id": "Text-to-SQL", "ch": 1, "cat": 3, "a": "g-Text-to-SQL", "d": "用大语言模型等技术把自然语言的问题自动翻译成 SQL 查询语句"},
+  {"id": "Docker", "ch": 2, "cat": 4, "a": "g-Docker", "d": "把软件和它需要的运行环境打包在一起、在任何装有 Docker 的电脑上以相同方式运行的容器技术"},
+  {"id": "镜像", "ch": 2, "cat": 4, "a": "g-镜像", "d": "打包好的软件和运行环境，只读，用来启动容器，名字后面的标签表示版本"},
+  {"id": "Docker 容器", "ch": 2, "cat": 4, "a": "g-Docker-容器", "d": "用镜像启动的运行实例，有自己的主机名、IP 地址和文件，彼此隔离；与 YARN 的“容器”不是一回事"},
+  {"id": "镜像仓库", "ch": 2, "cat": 4, "a": "g-镜像仓库", "d": "存放和分发镜像的服务，最大的公共仓库是 Docker Hub"},
+  {"id": "镜像加速", "ch": 2, "cat": 4, "a": "g-镜像加速", "d": "让 Docker 改从国内的镜像站下载镜像的设置，解决访问 Docker Hub 慢的问题"},
+  {"id": "端口映射", "ch": 2, "cat": 4, "a": "g-端口映射", "d": "把宿主机的端口转发到容器的端口，让外部能访问容器里的服务，写作“宿主机端口:容器端口”"},
+  {"id": "数据卷", "ch": 2, "cat": 4, "a": "g-数据卷", "d": "由 Docker 管理、在删除容器后仍然保留的存储空间，也可以把宿主机目录挂载进容器"},
+  {"id": "Docker Compose", "ch": 2, "cat": 4, "a": "g-Docker-Compose", "d": "把多个容器的设置写在一个 YAML 文件里，用一条命令统一启动、停止的工具"},
+  {"id": "主节点", "ch": 2, "cat": 4, "a": "g-主节点", "d": "集群中负责管理和协调的节点，运行 NameNode、ResourceManager 等管理进程"},
+  {"id": "工作节点", "ch": 2, "cat": 4, "a": "g-工作节点", "d": "集群中负责存储数据和执行计算任务的节点，运行 DataNode 和 NodeManager"},
+  {"id": "守护进程", "ch": 2, "cat": 4, "a": "g-守护进程", "d": "在后台持续运行、对外提供服务的程序"},
+  {"id": "格式化 NameNode", "ch": 2, "cat": 4, "a": "g-格式化-NameNode", "d": "第一次使用 HDFS 前初始化 NameNode 元数据目录的操作，相当于给新硬盘建立文件系统，只做一次"},
+  {"id": "jps", "ch": 2, "cat": 4, "a": "g-jps", "d": "Java 自带的命令，列出正在运行的 Java 进程，用来检查 Hadoop 守护进程是否启动"},
+  {"id": "HDFS", "ch": 3, "cat": 5, "a": "g-HDFS", "d": "Hadoop 分布式文件系统，把集群中许多台机器的硬盘组织成一个大文件系统，文件切块、多副本存放"},
+  {"id": "NameNode", "ch": 3, "cat": 5, "a": "g-NameNode", "d": "HDFS 的管理节点，保存元数据（目录树、文件由哪些块组成、每块在哪），不存文件内容"},
+  {"id": "DataNode", "ch": 3, "cat": 5, "a": "g-DataNode", "d": "HDFS 的数据节点，在本机硬盘上存放数据块，定期向 NameNode 发送心跳和块报告"},
+  {"id": "元数据", "ch": 3, "cat": 5, "a": "g-元数据", "d": "描述数据的数据，在 HDFS 中指目录结构、文件属性、文件与块的对应关系和块的位置"},
+  {"id": "数据块", "ch": 3, "cat": 5, "a": "g-数据块", "d": "HDFS 存储文件的基本单位，默认 128 MB，文件按顺序切块，最后一块按实际大小存放"},
+  {"id": "副本", "ch": 3, "cat": 5, "a": "g-副本", "d": "同一个数据块在不同机器上保存的完全相同的几份拷贝，份数由副本数决定"},
+  {"id": "心跳", "ch": 3, "cat": 5, "a": "g-心跳", "d": "DataNode 每隔几秒向 NameNode 发送的“我还活着”的信号，长时间收不到就判定节点死亡"},
+  {"id": "块报告", "ch": 3, "cat": 5, "a": "g-块报告", "d": "DataNode 定期向 NameNode 报告本机存有哪些数据块的清单"},
+  {"id": "副本不足", "ch": 3, "cat": 5, "a": "g-副本不足", "d": "某个块可用的副本数少于目标副本数的状态，NameNode 会安排复制补齐"},
+  {"id": "安全模式", "ch": 3, "cat": 5, "a": "g-安全模式", "d": "NameNode 启动时等待块报告的只读状态，确认绝大多数块可用后自动退出"},
+  {"id": "hdfs dfs", "ch": 3, "cat": 5, "a": "g-hdfs-dfs", "d": "操作 HDFS 文件的命令行工具，用法与 Linux 命令相似"},
+  {"id": "hdfs fsck", "ch": 3, "cat": 5, "a": "g-hdfs-fsck", "d": "检查 HDFS 文件健康状况的工具，可以列出文件的每个块和副本所在的位置"},
+  {"id": "WebHDFS", "ch": 3, "cat": 5, "a": "g-WebHDFS", "d": "HDFS 提供的 HTTP 接口，用网址加 op= 参数完成列目录、读写文件等操作"},
+  {"id": "HttpFS", "ch": 3, "cat": 5, "a": "g-HttpFS", "d": "与 WebHDFS 接口相同的 HTTP 网关，由它代为转发全部数据，让集群外的程序只需访问一个地址"},
+  {"id": "小文件问题", "ch": 3, "cat": 5, "a": "g-小文件问题", "d": "大量远小于块大小的文件占用过多 NameNode 内存、产生过多计算任务，导致集群变慢的问题"},
+  {"id": "对象存储", "ch": 3, "cat": 5, "a": "g-对象存储", "d": "把每个文件当作一个对象、通过网址存取、容量几乎无限、按用量付费的云存储服务"},
+  {"id": "存算分离", "ch": 3, "cat": 5, "a": "g-存算分离", "d": "数据统一存放在对象存储等共享存储中，计算集群按需开关、与存储各自扩展的架构"},
   {"id": "MapReduce", "ch": 4, "cat": 0, "a": "g-MapReduce", "d": "Hadoop 的分布式计算模型：把一个大任务拆成许多 Map 任务在多台机器上并行处理，再由 Reduce 任务按键汇总结果"},
   {"id": "分而治之", "ch": 4, "cat": 0, "a": "g-分而治之", "d": "把一个大问题拆成许多互不相干的小问题分别解决，再把小问题的答案合并起来的思路"},
   {"id": "作业", "ch": 4, "cat": 0, "a": "g-作业", "d": "用户提交给集群的一次完整计算，一个 MapReduce 作业包含若干个 Map 任务和 Reduce 任务"},
@@ -27,4 +73,4 @@ var NODES = [
   {"id": "容器", "ch": 4, "cat": 2, "a": "g-容器", "d": "YARN 分配资源的单位，是某台机器上的一份内存和 CPU，任务就在容器里运行"},
   {"id": "数据本地化", "ch": 4, "cat": 2, "a": "g-数据本地化", "d": "把计算任务安排到存有它要读的数据块的机器上运行，避免通过网络搬运数据"}
 ];
-var EDGES = [["分而治之", "MapReduce"], ["MapReduce", "作业"], ["作业", "任务"], ["输入分片", "Map 阶段"], ["键值对", "Map 阶段"], ["Map 阶段", "分区"], ["分区", "Shuffle"], ["Shuffle", "Reduce 阶段"], ["Map 阶段", "Combiner"], ["Combiner", "Shuffle"], ["Reduce 阶段", "Hadoop Streaming"], ["Map 阶段", "Hadoop Streaming"], ["Hadoop Streaming", "PV"], ["Hadoop Streaming", "UV"], ["Hadoop Streaming", "TopN"], ["Reduce 阶段", "TopN"], ["PV", "UV"], ["任务", "计数器"], ["Shuffle", "计数器"], ["任务", "容器"], ["YARN", "ResourceManager"], ["YARN", "NodeManager"], ["NodeManager", "容器"], ["ResourceManager", "ApplicationMaster"], ["作业", "ApplicationMaster"], ["容器", "ApplicationMaster"], ["输入分片", "数据本地化"], ["ResourceManager", "数据本地化"], ["MapReduce", "YARN"]];
+var EDGES = [["大数据", "5V 特征"], ["5V 特征", "结构化数据"], ["5V 特征", "半结构化数据"], ["5V 特征", "非结构化数据"], ["大数据", "纵向扩展"], ["大数据", "横向扩展"], ["横向扩展", "集群"], ["集群", "节点"], ["集群", "移动计算"], ["大数据", "大数据处理流程"], ["大数据处理流程", "批处理"], ["大数据处理流程", "流处理"], ["集群", "Hadoop"], ["Hadoop", "本地模式"], ["大数据处理流程", "Text-to-SQL"], ["Docker", "镜像"], ["镜像", "Docker 容器"], ["镜像仓库", "镜像"], ["镜像加速", "镜像仓库"], ["Docker 容器", "端口映射"], ["Docker 容器", "数据卷"], ["Docker 容器", "Docker Compose"], ["Docker Compose", "主节点"], ["Docker Compose", "工作节点"], ["节点", "主节点"], ["节点", "工作节点"], ["主节点", "守护进程"], ["工作节点", "守护进程"], ["守护进程", "jps"], ["主节点", "格式化 NameNode"], ["Hadoop", "HDFS"], ["HDFS", "NameNode"], ["HDFS", "DataNode"], ["主节点", "NameNode"], ["工作节点", "DataNode"], ["格式化 NameNode", "NameNode"], ["NameNode", "元数据"], ["HDFS", "数据块"], ["数据块", "副本"], ["DataNode", "心跳"], ["DataNode", "块报告"], ["心跳", "副本不足"], ["副本", "副本不足"], ["块报告", "安全模式"], ["HDFS", "hdfs dfs"], ["数据块", "hdfs fsck"], ["HDFS", "WebHDFS"], ["WebHDFS", "HttpFS"], ["端口映射", "HttpFS"], ["元数据", "小文件问题"], ["HDFS", "对象存储"], ["对象存储", "存算分离"], ["移动计算", "存算分离"], ["分而治之", "MapReduce"], ["移动计算", "数据本地化"], ["数据块", "输入分片"], ["Hadoop", "MapReduce"], ["Hadoop", "YARN"], ["Docker 容器", "容器"], ["分而治之", "MapReduce"], ["MapReduce", "作业"], ["作业", "任务"], ["输入分片", "Map 阶段"], ["键值对", "Map 阶段"], ["Map 阶段", "分区"], ["分区", "Shuffle"], ["Shuffle", "Reduce 阶段"], ["Map 阶段", "Combiner"], ["Combiner", "Shuffle"], ["Reduce 阶段", "Hadoop Streaming"], ["Map 阶段", "Hadoop Streaming"], ["Hadoop Streaming", "PV"], ["Hadoop Streaming", "UV"], ["Hadoop Streaming", "TopN"], ["Reduce 阶段", "TopN"], ["PV", "UV"], ["任务", "计数器"], ["Shuffle", "计数器"], ["任务", "容器"], ["YARN", "ResourceManager"], ["YARN", "NodeManager"], ["NodeManager", "容器"], ["ResourceManager", "ApplicationMaster"], ["作业", "ApplicationMaster"], ["容器", "ApplicationMaster"], ["输入分片", "数据本地化"], ["ResourceManager", "数据本地化"], ["MapReduce", "YARN"]];

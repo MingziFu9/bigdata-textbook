@@ -30,10 +30,10 @@
 
 | 章 | 正文字数 | 实验 | 课后练习<br>（可在线作答） | 术语 | 参考文献 | 交互动画 |
 |---|---|---|---|---|---|---|
-| [第 1 章](chapters/01-overview/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
-| [第 2 章](chapters/02-environment/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
-| [第 3 章](chapters/03-hdfs/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
-| [第 4 章](chapters/04-mapreduce-yarn/index.md) | 1.2 万 | 3 | 23（18） | 22 | 10 | 2 |
+| [第 1 章](chapters/01-overview/index.md) | 1.0 万 | 3 | 23（18） | 16 | 10 | 1 |
+| [第 2 章](chapters/02-environment/index.md) | 0.8 万 | 3 | 23（18） | 13 | 9 | 1 |
+| [第 3 章](chapters/03-hdfs/index.md) | 0.8 万 | 3 | 23（18） | 17 | 10 | 1 |
+| [第 4 章](chapters/04-mapreduce-yarn/index.md) | 1.3 万 | 3 | 23（18） | 22 | 10 | 2 |
 | [第 5 章](chapters/05-hive/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
 | [第 6 章](chapters/06-spark-rdd/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
 | [第 7 章](chapters/07-data-cleaning/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
@@ -42,9 +42,9 @@
 | [第 10 章](chapters/10-mllib/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
 | [第 11 章](chapters/11-tuning/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
 | [第 12 章](chapters/12-visualization-project/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
-| **合计** | **1.6 万** | **36** | **23（18）** | **22** | **10** | **2** |
+| **合计** | **4.1 万** | **36** | **92（72）** | **68** | **39** | **5** |
 
-正文字数只统计汉字，不含代码和课后练习；单选、多选和判断题可以在网页上直接作答。配套学习资源：[交互动画](sims/index.md) 2 个 · [学习图谱](learning-graph/index.md) 22 个概念 · [常见问题](faq/index.md) 5 问 · [术语表](appendix/glossary.md) 22 条。
+正文字数只统计汉字，不含代码和课后练习；单选、多选和判断题可以在网页上直接作答。配套学习资源：[交互动画](sims/index.md) 5 个 · [学习图谱](learning-graph/index.md) 68 个概念 · [常见问题](faq/index.md) 10 问 · [术语表](appendix/glossary.md) 68 条。
 
 <!-- stats:end -->
 

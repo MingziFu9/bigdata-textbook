@@ -1,0 +1,104 @@
+# 第 3 章教案底稿，由 python tools/make_lesson_plan.py draft 生成。
+# 改好“【待填】”的地方，删减或补充其他内容后运行 build。字段说明见 lesson-plans/README.md
+chapter: 3
+online: 5
+offline: 1
+methods:
+- 讲授法
+- 案例教学法
+- 演示法
+- 线上自主学习
+- 实验教学法
+objectives:
+  knowledge:
+  - 说出 NameNode 和 DataNode 的分工，以及数据块、副本、心跳的含义
+  skill:
+  - 计算一个文件在 HDFS 中切成几块、占用多少存储空间，判断坏几台机器会丢数据
+  - 使用 hdfs dfs 常用命令和 9870 网页完成上传、下载、查看、移动、删除和查看数据块等操作
+  - 编写 Python 程序，通过 HttpFS 读取 HDFS 上的文件，用 pandas 分析后把结果写回 HDFS
+  - 判断一份数据适不适合放在 HDFS 上，以及该用 HDFS 还是云上的对象存储
+  quality:
+  - 理解“多副本容错”的工程思想，养成重要数据多处备份的习惯
+  - 操作 rm -r、down -v 等不可恢复的命令前先确认路径，敬畏生产数据
+key_points:
+- NameNode 与 DataNode 的分工，心跳和块报告
+- 数据块与副本：块数、占用空间、容错台数的计算
+- hdfs dfs 常用命令、hdfs fsck 和 9870 网页
+- 用 Python 通过 HttpFS 读写 HDFS
+difficulties:
+- point: 看不见数据块和副本，说不清文件在集群里到底是怎样存放的
+  solution: 先让学生手算 701.8 MB 大日志的块数和占用空间，再用“切块与副本”动画上传核对；课上用 hdfs fsck 和 9870 网页查看真实的 6 个块，三者对照
+- point: 不理解为什么坏一台机器数据还在，以及“副本不足”“丢失的块”的区别
+  solution: 用动画先停一台、再停第二台，对比两种结果；现场演示实验 3-2：停掉 worker2 后立即读取，看 WARN 提示自动改读另一份副本，等待判定死亡后用 fsck 看副本已补到 worker3
+- point: -put、-get 中本地路径和 HDFS 路径混淆
+  solution: 沿用第 2 章的三层路径关系图，每条命令先说出每个路径属于哪一层再执行；课堂练习专门安排路径辨析题
+process:
+- phase: 课前（线上）
+  steps:
+  - name: 自主学习
+    minutes: 150
+    content: 学习网页教材第 3 章 3.1～3.6 节，完成 3.2.3 节“算一算”，操作“切块与副本”动画的三个小实验
+    teacher: 发布学习任务单和三个预习问题：1 GB 文件切几块、占多少空间？停掉一台 DataNode 会发生什么？为什么不能存大量小文件？
+    student: 阅读教材、操作动画，在讨论区提交预习问题的回答
+    intent: 原理部分线上自学，面授集中在“看得见”的演示和操作
+  - name: 实验 3-1
+    minutes: 40
+    content: 实验 3-1 HDFS 文件管理：建目录、上传、查看、复制、移动、下载、删除，生成并上传 1000 万行大日志，用 fsck 查看数据块
+    teacher: 提供实验指导和常见问题排查表，在线答疑
+    student: 完成实验 3-1，填写实验记录表
+    intent: 熟悉 hdfs dfs 命令，为面授准备好大日志
+- phase: 课中（线下面授 / 直播）
+  steps:
+  - name: 情景导入
+    minutes: 4
+    content: 一块没有备份的硬盘坏了，三个月的日志找不回来；提出“装不下”“坏了丢”两个问题
+    teacher: 讲述情景，请学生提出解决思路
+    student: 讨论并回答
+    intent: 引出 HDFS 的两个设计目标
+  - name: 难点讲解：数据块与副本
+    minutes: 12
+    content: 用图书馆的比方讲解 NameNode 和 DataNode；讲评预习“算一算”；用动画上传 702 MB 文件，再对照学生实验 3-1 中 fsck 的输出和 9870 网页上的块信息
+    teacher: 操作动画，投屏展示真实的 fsck 输出
+    student: 对照自己的实验结果回答提问
+    intent: 突破难点一
+  - name: 演示：节点坏了数据还在吗
+    minutes: 12
+    content: 现场演示实验 3-2：停掉存有数据的 worker2，立即读取大日志并查看 WARN 提示；等待约 1.5 分钟出现 Dead datanodes，用 fsck 看副本已补齐；用动画演示同时坏两台的后果
+    teacher: 投屏演示，等待期间讲解心跳、判定死亡和副本补齐的过程
+    student: 观察并记录时间和结果
+    intent: 突破难点二
+  - name: Python 读写 HDFS 与使用注意
+    minutes: 8
+    content: 讲解 WebHDFS 和 HttpFS，演示实验 3-3 程序；讲解小文件问题、只能追加不能修改，HDFS 与对象存储的选择和存算分离
+    teacher: 运行程序并讲解关键代码，用表格对比 HDFS 和对象存储
+    student: 观看演示，记录要点
+    intent: 为课后实验 3-3 做准备，形成“该不该放 HDFS”的判断
+  - name: 课堂练习
+    minutes: 7
+    content: 课后练习中的单选第 2、7、9 题，多选第 2 题，判断第 4 题（在线作答）
+    teacher: 组织学生在网页上作答，讲评错误率高的题
+    student: 在线作答，查看解析
+    intent: 即时检验学习效果，单选第 7 题检验路径辨析（难点三）
+  - name: 小结
+    minutes: 2
+    content: 用本章知识导图回顾要点，预告第 4 章 MapReduce：让每台机器就地统计自己的块
+    teacher: 带领学生梳理知识导图
+    student: 复述本章要点
+    intent: 形成知识结构
+- phase: 课后（线上）
+  steps:
+  - name: 实验 3-2（实验 3-3 选做）
+    minutes: 35
+    content: 在自己的集群上完成实验 3-2；学有余力的完成实验 3-3 用 Python 把分析结果存进 HDFS；完成本章课后练习（在线作答 18 题，简答 / 实操 5 题）
+    teacher: 在线答疑
+    student: 完成实验，提交实验报告
+    intent: 把演示内容落到自己的操作
+homework:
+- 简答题：用图书馆打比方，说明 NameNode、DataNode、数据块、副本分别相当于什么，以及读文件的过程。
+- 简答题：6 台 DataNode、副本数 3，存一个 5 GB 的文件，切几块、多少个块副本、占用多少空间、最多同时坏几台不丢数据？
+- 简答题：从维护、扩容、成本、性能几个方面比较自建 HDFS 和云对象存储，并给出建议。
+- 实操题：在 HDFS 上建立备份目录，上传、改副本数、查看空间占用后删除。
+- 实操题：用 Python 读取 users.csv，统计各会员等级的用户数和平均年龄，结果写回 HDFS。
+- 实验报告：实验 3-1、实验 3-2、实验 3-3
+assessment: 课堂练习正确率、课后作业和实验报告计入平时成绩
+reflection: ''

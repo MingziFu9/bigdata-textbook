@@ -19,6 +19,7 @@ services:
       - "9870:9870"     # NameNode 网页
       - "8088:8088"     # ResourceManager 网页
       - "19888:19888"   # 作业历史网页
+      - "14000:14000"   # HttpFS：用 Python 读写 HDFS
     volumes:
       - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
       - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro

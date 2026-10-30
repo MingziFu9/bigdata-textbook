@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HDFS 切块与副本</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.ctl label { font-size:13px; }
+.ctl select { padding:3px 6px; font-size:13px; }
+.file { display:flex; height:30px; border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-top:4px; }
+.file .b { display:flex; align-items:center; justify-content:center; font-size:11.5px; color:#fff; border-right:2px solid #fff; white-space:nowrap; overflow:hidden; }
+.nodes { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+.dn { border:2px solid var(--line); border-radius:8px; padding:6px 8px; background:#fafbfc; min-height:92px; }
+.dn h3 { margin:0 0 4px; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; }
+.dn.dead { background:#ffebee; border-color:#ef9a9a; border-style:dashed; }
+.dn.dead .chip { opacity:.35; }
+.dn button { font-size:11.5px; padding:1px 8px; }
+.chip { display:inline-block; min-width:30px; text-align:center; padding:2px 5px; margin:2px; border-radius:4px; font-size:11.5px; color:#fff; transition:all .3s; }
+.chip.new { box-shadow:0 0 0 3px #ffd54f; }
+.dn .use { font-size:11px; color:var(--muted); }
+table.t td.under { color:var(--warn); font-weight:600; } table.t td.miss { color:var(--neg); font-weight:700; }
+.stat { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; }
+.stat b { font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<h1>HDFS 切块与副本：文件怎样分散存放，坏一台机器为什么不丢</h1>
+<div class="sub">选好文件大小、块大小和副本数，按“上传”看 NameNode 怎样把文件切成块、把每块的几份副本放到不同的 DataNode 上。然后点某台机器上的“停掉”，再按“NameNode 检查一次”，看副本怎样补齐。</div>
+
+<div class="row ctl">
+  <label>文件 <select id="fs"><option value="70">access.log 70 MB</option><option value="300">300 MB</option><option value="702" selected>access.log（大）702 MB</option><option value="1024">1 GB</option></select></label>
+  <label>块大小 <select id="bs"><option value="64">64 MB</option><option value="128" selected>128 MB（默认）</option><option value="256">256 MB</option></select></label>
+  <label>副本数 <select id="rp"><option>1</option><option selected>2</option><option>3</option></select></label>
+  <label>DataNode <select id="nn"><option>2</option><option selected>3</option><option>4</option></select></label>
+</div>
+<div class="row">
+  <button class="main" id="up">上传</button>
+  <button id="chk" disabled>NameNode 检查一次</button>
+  <button id="reset">重新开始</button>
+</div>
+
+<div class="box"><h2>① 客户端：文件被切成这些块</h2><div class="file" id="file"></div><div class="note" id="fnote"></div></div>
+<div class="box"><h2>② DataNode：每台机器上存了哪些块（同一种颜色是同一块的几份副本）</h2><div class="nodes" id="nodes"></div></div>
+<div class="box"><h2>③ NameNode 的“账本”：每块在哪几台机器上（相当于 hdfs fsck -files -blocks -locations）</h2>
+  <div class="stat" id="stat"></div><table class="t" id="meta" style="width:100%;margin-top:6px"></table></div>
+<div class="msg" id="msg"></div>
+<div class="note">简化说明：副本放置只遵守“同一块的副本不放在同一台机器上”，并优先放在存得少的机器上；真实 HDFS 还会考虑机架和写入的客户端在哪台机器。真实集群要等 DataNode 停止心跳一段时间（随书集群约 1.5 分钟，默认 10 分钟以上）才判定它死亡，这里用“检查一次”代替等待。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const COLORS = ['#3f51b5', '#00897b', '#ef6c00', '#8e24aa', '#6d4c41', '#1e88e5', '#c0ca33', '#d81b60', '#546e7a', '#43a047', '#f4511e', '#5e35b1', '#00acc1', '#7cb342', '#fb8c00', '#3949ab'];
+let S;
+function init() {
+  const n = +$('nn').value;
+  S = { up: false, blocks: [], nodes: Array.from({ length: n }, (_, i) => ({ name: 'worker' + (i + 1), alive: true, known: true, has: [] })), newly: new Set(), msg: '' };
+  S.msg = '还没有上传文件。按“上传”开始。'; $('chk').disabled = true; render();
+}
+function pick(exclude, k) {           // 选 k 台活着的、还没有这一块的机器，优先存得少的
+  return S.nodes.filter(d => d.alive && d.known && !exclude.includes(d)).sort((a, b) => a.has.length - b.has.length || Math.random() - .5).slice(0, k);
+}
+function upload() {
+  init();
+  const size = +$('fs').value, bs = +$('bs').value, rp = +$('rp').value;
+  const cnt = Math.ceil(size / bs);
+  for (let i = 0; i < cnt; i++) {
+    const len = Math.min(bs, size - i * bs), b = { id: i, len, color: COLORS[i % COLORS.length] };
+    S.blocks.push(b);
+    for (const d of pick([], rp)) d.has.push(i);
+  }
+  S.up = true; $('chk').disabled = false;
+  const lack = rp > S.nodes.length;
+  S.msg = `文件 ${size} MB 按 ${bs} MB 切成 <b>${cnt}</b> 块（最后一块只有 ${S.blocks[cnt - 1].len} MB，不会占满 ${bs} MB），每块存 ${rp} 份，共占用 <b>${size * rp} MB</b> 硬盘。` +
+          (lack ? ` <span class="bad">副本数比 DataNode 还多，每块最多只能放 ${S.nodes.length} 份，一上传就“副本不足”。</span>` : '');
+  render();
+}
+function locs(i) { return S.nodes.filter(d => d.has.includes(i)); }
+function check() {
+  S.newly = new Set();
+  const rp = +$('rp').value, gone = S.nodes.filter(d => !d.alive && d.known);
+  const notes = [];
+  if (gone.length) { gone.forEach(d => d.known = false); notes.push(`NameNode 发现 ${gone.map(d => d.name).join('、')} 很久没有心跳，判定为<b>死亡</b>，它上面的副本不再算数。`); }
+  let copied = 0, still = 0, lost = 0;
+  for (const b of S.blocks) {
+    const live = locs(b.id).filter(d => d.alive && d.known);
+    if (!live.length) { lost++; continue; }
+    if (live.length < rp) {
+      const tgt = pick(locs(b.id), rp - live.length);
+      tgt.forEach(d => { d.has.push(b.id); S.newly.add(d.name + ':' + b.id); copied++; });
+      if (live.length + tgt.length < rp) still++;
+    }
+  }
+  if (copied) notes.push(`让活着的 DataNode 互相复制了 <b>${copied}</b> 份副本（黄色边框），把副本数补回 ${rp}。`);
+  if (still) notes.push(`<span class="bad">还有 ${still} 块副本不足：活着的机器不够 ${rp} 台，补不齐，等坏的机器修好或加新机器。</span>`);
+  if (lost) notes.push(`<span class="bad">有 ${lost} 块的所有副本都在坏掉的机器上，这些块<b>丢失</b>了，文件读不出来！</span>`);
+  if (!notes.length) notes.push('所有块的副本都齐全，状态 HEALTHY，没有要做的事。');
+  S.msg = notes.join('<br>');
+  render();
+}
+function render() {
+  const rp = +$('rp').value;
+  $('file').innerHTML = S.blocks.map(b => `<div class="b" style="flex:${b.len};background:${b.color}">块 ${b.id}（${b.len} MB）</div>`).join('') || '<div class="b" style="flex:1;background:#b0bec5">尚未上传</div>';
+  $('fnote').textContent = S.up ? '读文件时，客户端先问 NameNode 每块在哪，再直接到 DataNode 上把各块按顺序读回来拼成整个文件。' : '';
+  $('nodes').innerHTML = S.nodes.map((d, k) => {
+    const mb = d.has.reduce((s, i) => s + S.blocks[i].len, 0);
+    return `<div class="dn ${d.alive ? '' : 'dead'}"><h3><span>${d.name}${d.alive ? '' : (d.known ? ' · 已停止' : ' · 已判定死亡')}</span>
+      <button data-k="${k}">${d.alive ? '停掉' : '启动'}</button></h3>
+      ${d.has.map(i => `<span class="chip ${S.newly.has(d.name + ':' + i) ? 'new' : ''}" style="background:${S.blocks[i].color}">块${i}</span>`).join('')}
+      <div class="use">存了 ${d.has.length} 个块，${mb} MB</div></div>`;
+  }).join('');
+  document.querySelectorAll('.dn button').forEach(b => b.onclick = () => toggle(+b.dataset.k));
+  let h = '<tr><th>块</th><th>大小</th><th>NameNode 记录的位置</th><th>可用副本 / 目标</th></tr>', under = 0, miss = 0;
+  for (const b of S.blocks) {
+    const all = locs(b.id), live = all.filter(d => d.alive);
+    const cls = live.length === 0 ? 'miss' : live.length < rp ? 'under' : '';
+    if (cls === 'miss') miss++; else if (cls === 'under') under++;
+    h += `<tr><td><span class="chip" style="background:${b.color}">块${b.id}</span></td><td>${b.len} MB</td>
+      <td>${all.map(d => d.alive ? d.name : `<s style="color:#e53935">${d.name}</s>`).join('、')}</td>
+      <td class="${cls}">${live.length} / ${rp}${cls === 'miss' ? ' 丢失' : cls === 'under' ? ' 副本不足' : ''}</td></tr>`;
+  }
+  $('meta').innerHTML = S.blocks.length ? h : '';
+  const liveN = S.nodes.filter(d => d.alive).length;
+  $('stat').innerHTML = `<span>Live datanodes：<b>${liveN}</b></span><span>块数：<b>${S.blocks.length}</b></span>
+    <span>副本不足的块：<b>${under}</b></span><span>丢失的块：<b class="${miss ? 'bad' : ''}">${miss}</b></span>
+    <span>文件状态：<b class="${miss ? 'bad' : 'ok'}">${S.up ? (miss ? 'CORRUPT（读不出来）' : 'HEALTHY（能正常读取）') : '—'}</b></span>`;
+  $('msg').innerHTML = S.msg;
+}
+function toggle(k) {
+  const d = S.nodes[k];
+  if (d.alive) { d.alive = false; S.msg = `${d.name} 停止了。此时它上面的块还能从其他副本读到；NameNode 要等一段时间收不到心跳，才会认定它死亡并补副本。按“NameNode 检查一次”。`; }
+  else { d.alive = true; d.known = true; S.msg = `${d.name} 重新启动，向 NameNode 报告它存着的块。补副本后多出来的副本，NameNode 会让某台机器删掉一份，回到目标副本数。`; trim(); }
+  S.newly = new Set(); render();
+}
+function trim() {
+  const rp = +$('rp').value;
+  for (const b of S.blocks) { let live = locs(b.id).filter(d => d.alive); while (live.length > rp) { const d = live.sort((a, c) => c.has.length - a.has.length)[0]; d.has = d.has.filter(i => i !== b.id); live = live.filter(x => x !== d); } }
+}
+$('up').onclick = upload; $('chk').onclick = check; $('reset').onclick = init;
+for (const id of ['fs', 'bs', 'rp', 'nn']) $(id).onchange = init;
+init();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

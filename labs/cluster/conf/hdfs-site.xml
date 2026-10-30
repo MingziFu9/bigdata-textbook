@@ -30,4 +30,10 @@
     <name>dfs.datanode.use.datanode.hostname</name>
     <value>true</value>
   </property>
+  <!-- NameNode 多久检查一次失联的 DataNode（毫秒）。默认 5 分钟，失联约 10.5 分钟后才判定节点“死亡”；
+       这里改成 30 秒，约 1.5 分钟就能判定，方便在实验 3-2 中观察副本自动补齐 -->
+  <property>
+    <name>dfs.namenode.heartbeat.recheck-interval</name>
+    <value>30000</value>
+  </property>
 </configuration>

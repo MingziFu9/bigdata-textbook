@@ -51,6 +51,9 @@ nav:
   - "第 12 章 数据可视化、数据合规与综合项目": chapters/12-visualization-project/index.md
   - 交互动画:
     - sims/index.md
+    - "单机与集群耗时估算器": sims/cluster-estimator/index.md
+    - "集群地图": sims/cluster-map/index.md
+    - "HDFS 切块与副本": sims/hdfs-blocks/index.md
     - "MapReduce 词频统计全流程": sims/mapreduce-wordcount/index.md
     - "YARN 资源分配": sims/yarn-scheduling/index.md
   - 学习图谱: learning-graph/index.md

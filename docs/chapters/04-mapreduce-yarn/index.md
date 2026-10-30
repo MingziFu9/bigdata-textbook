@@ -869,7 +869,7 @@ application_1793288590533_0002	小象优选-热门页面Top10	MAPREDUCE	root	roo
 | `subprocess failed with code 1` | Python 程序出了异常 | 用 `yarn logs -applicationId …` 查看 Traceback；先用管道在本机调通 |
 | 作业停在 ACCEPTED 不动 | 另一个作业还在运行（AM 资源上限），或 NodeManager 不健康 | 等前一个作业结束；在 8088 的 Nodes 页面检查节点是否 RUNNING，磁盘是否快满（附录 C） |
 | 点 History 链接打不开 | 链接里是集群内部主机名 `master` | 把地址中的 `master` 改成 `localhost` |
-| 网页上的时间比实际少 8 小时 | 网页按世界协调时（UTC，+0000）显示 | 加 8 小时就是北京时间，不影响结果 |
+| 网页上的时间比实际少 8 小时 | 部分页面按浏览器所在电脑的时区显示，电脑时区是世界协调时（UTC，+0000） | 加 8 小时就是北京时间，不影响结果 |
 
 **思考与练习**
 

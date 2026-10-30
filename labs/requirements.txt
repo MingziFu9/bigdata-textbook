@@ -1,6 +1,8 @@
-# 《大数据技术处理技术》本机实验环境（编者实测：Python 3.11～3.13）
+# 《大数据技术处理技术》本机实验环境（编者实测：Python 3.12；numpy 2.5 需要 Python 3.12 及以上）
 # 安装：pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 # Hadoop、Hive、Kafka、Spark 集群运行在 Docker 里（见 cluster/ 和附录 C），不用 pip 安装
 # 只列学生实验真正用到的库，版本号是编者实际运行过的；后续章节写到时再补充
 numpy==2.5.3          # 生成模拟数据（data/make_data.py）
 pandas==3.0.5         # 生成模拟数据、查看结果
+pyspark==4.1.4        # 第 1 章起：本机运行 Spark（还需要 Java 17 或 21）
+requests==2.32.5      # 第 3 章：通过 HttpFS 用 Python 读写 HDFS

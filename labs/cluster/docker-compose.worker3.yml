@@ -1,0 +1,24 @@
+# 实验 2-3：给集群再加一个工作节点 worker3
+# 启动：docker compose -f docker-compose.yml -f docker-compose.worker3.yml up -d
+# 以后每次启动、停止都要带上这两个 -f，否则 worker3 不会被管理
+services:
+  worker3:
+    image: apache/hadoop:3.4.3
+    user: root
+    environment:
+      TZ: Asia/Shanghai
+      HADOOP_HEAPSIZE_MAX: 512m
+    hostname: worker3
+    command: ["bash", "/opt/start-worker.sh"]
+    depends_on: [master]
+    volumes:
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./start-worker.sh:/opt/start-worker.sh:ro
+      - ../:/labs
+      - worker3-data:/data/hadoop
+
+volumes:
+  worker3-data:

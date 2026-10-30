@@ -16,4 +16,13 @@
     <name>hadoop.http.staticuser.user</name>
     <value>hadoop</value>
   </property>
+  <!-- 允许 HttpFS 网关（master 的 14000 端口）代表其他用户访问 HDFS，第 3 章用 Python 读写 HDFS 时用到 -->
+  <property>
+    <name>hadoop.proxyuser.root.hosts</name>
+    <value>*</value>
+  </property>
+  <property>
+    <name>hadoop.proxyuser.root.groups</name>
+    <value>*</value>
+  </property>
 </configuration>
