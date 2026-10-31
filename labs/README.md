@@ -12,4 +12,6 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 Hadoop 小集群在 `cluster/` 目录：`cd cluster && docker compose up -d` 启动（1 个主节点 + 2 个工作节点，实验 2-3 起可再加 worker3），`labs/` 整个目录挂载在容器里的 `/labs` 下。需要在集群上运行的脚本，文件开头的注释写明了运行方式，例如 `docker compose exec master bash /labs/ch04/lab4_2_log_analysis.sh`。
 
+第 5 章起还要用到 Hive、Spark、MySQL 容器，分别写在 `cluster/docker-compose.hive.yml`、`docker-compose.spark.yml`、`docker-compose.mysql.yml` 中，用多个 `-f` 叠加启动，见附录 C。第 8 章写 MySQL 用的 JDBC 驱动放在 `jars/`（不进仓库，下载方法见 `ch08/README.md`）。
+
 每个脚本的运行结果都和教材正文中的“运行结果”一致（耗时因电脑而异）。

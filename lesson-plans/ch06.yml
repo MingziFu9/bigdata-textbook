@@ -1,0 +1,103 @@
+# 第 6 章教案底稿。字段说明见 lesson-plans/README.md
+chapter: 6
+online: 5
+offline: 1
+methods:
+- 讲授法
+- 案例教学法
+- 演示法
+- 线上自主学习
+- 实验教学法
+objectives:
+  knowledge:
+  - 说出 Spark 比 MapReduce 快的原因，以及 Driver、Executor、集群管理器的分工
+  - 区分转换和行动，解释惰性执行，说出 Job、Stage、Task 的关系和 Stage 在哪里切开
+  skill:
+  - 在 spark 容器中使用 pyspark 交互环境和 spark-submit 运行程序，在 Spark UI 上查看 Job、Stage、Task
+  - 编写 RDD 程序，用 map、filter、flatMap、reduceByKey、sortBy、join 等操作完成日志统计
+  - 判断什么时候该用缓存，一个作业该在本地模式运行还是提交到 YARN 集群
+  quality:
+  - 养成用实测数据比较方案的习惯，不盲目相信“集群一定更快”
+  - 了解 Serverless Spark 等云上服务的发展，关注技术的工程落地
+key_points:
+- Driver 与 Executor 的分工，RDD 的分区
+- 转换与行动、惰性执行
+- Job、Stage、Task 的拆分，在 Spark UI 上查看
+- 常用 RDD 操作和用 RDD 改写日志统计
+difficulties:
+- point: 惰性执行反直觉，学生以为写下转换就已经算完了
+  solution: 现场在 pyspark 中定义三个转换并计时（0.6 秒），再执行 count（2.1 秒）；对照 Spark UI 的 Jobs 页面，说明转换时一个 Job 也没有
+- point: Stage 在哪里切开、Task 有多少个，看不见摸不着
+  solution: 先让学生对一段程序数 Shuffle、猜 Stage 数，再用“Spark 作业怎样拆成 Stage 和 Task”动画核对；投屏实验 6-1 的 DAG 图，指出 reduceByKey 处的切分和 45.5 KiB 的 Shuffle 数据
+- point: 学生认为提交到集群一定更快
+  solution: 展示实验 6-3 的实测：本地 10.6 秒、YARN 32.1 秒（总计 53 秒），讨论原因，归纳本地模式与集群各自适用的场合
+process:
+- phase: 课前（线上）
+  steps:
+  - name: 自主学习
+    minutes: 140
+    content: 学习网页教材第 6 章 6.1～6.7 节，操作“Spark 作业怎样拆成 Stage 和 Task”动画
+    teacher: 在学习平台发布学习任务单和三个预习问题：Spark 为什么比 MapReduce 快？转换和行动有什么不同？什么时候值得缓存？
+    student: 阅读教材、操作动画，在讨论区提交预习问题的回答和疑问
+    intent: 概念线上自学，把面授时间留给演示和难点
+  - name: 实验 6-1
+    minutes: 35
+    content: 启动 spark 容器，在 pyspark 中试验 RDD 操作；运行第一个程序，体会惰性执行和缓存，在 Spark UI 上查看 Job、Stage、Task
+    teacher: 提供实验指导和常见问题排查表，在线答疑
+    student: 完成实验 6-1，记录各步用时
+    intent: 先上手，带着问题进课堂
+- phase: 课中（线下面授 / 直播）
+  steps:
+  - name: 情景导入
+    minutes: 5
+    content: 加购后 30 分钟没下单的用户要发券，用 SQL 绕、用 MapReduce 要串好几个作业；回顾第 4 章 MapReduce 的代码量和耗时
+    teacher: 讲述情景，引出 Spark
+    student: 回忆第 4 章实验，说出 MapReduce 的不便之处
+    intent: 用对比激发学习 Spark 的需要
+  - name: 难点讲解：惰性执行
+    minutes: 10
+    content: 讲 Driver、Executor、RDD 分区；现场计时演示转换和行动，对照 Spark UI
+    teacher: 投屏演示，追问“为什么定义转换这么快”
+    student: 观察演示，回答提问
+    intent: 突破难点一
+  - name: Job、Stage、Task
+    minutes: 10
+    content: 学生数 Stage 后用动画核对；讲解 DAG 图和 Shuffle 数据量；改分区数和核数看 Task 分批
+    teacher: 组织先猜后验，讲评
+    student: 操作动画，说明理由
+    intent: 突破难点二
+  - name: RDD 改写日志统计与本地 / 集群对比
+    minutes: 8
+    content: 对照第 4 章与本章代码（104 行与 27 行）；讲 cache 的用法；展示实验 6-3 实测数据，讨论本地模式与 YARN 的选择
+    teacher: 讲授并组织讨论
+    student: 小组讨论并汇报
+    intent: 突破难点三
+  - name: 课堂练习
+    minutes: 8
+    content: 课后练习中的单选第 4、5、6 题，判断第 2 题（在线作答）
+    teacher: 组织作答，讲评错误率高的题
+    student: 在线作答，查看解析
+    intent: 即时检验学习效果
+  - name: 小结
+    minutes: 4
+    content: 用知识导图回顾要点，介绍 Serverless Spark；预告第 7 章 DataFrame 与数据清洗
+    teacher: 带领学生梳理知识导图
+    student: 复述本章要点
+    intent: 形成知识结构
+- phase: 课后（线上）
+  steps:
+  - name: 实验 6-2、6-3
+    minutes: 50
+    content: 完成实验 6-2（用 RDD 统计每小时 PV、UV 和热门页面，与第 4 章结果对照），学有余力的完成实验 6-3（提交到 YARN）；完成本章课后练习
+    teacher: 在线答疑，收集环境问题补充到常见问题
+    student: 完成实验，提交实验报告
+    intent: 把面授内容落到实际操作
+homework:
+- 简答题：用“食堂做饭”打比方，说明 Driver、Executor、分区、Task 分别相当于什么。
+- 简答题：什么是惰性执行？它有什么好处？举一个例子说明。
+- 简答题：小象优选数据组有两个任务：① 每天对 300 MB 的日志做一次统计；② 每天对 2 TB 的全站日志做统计，数据在 HDFS 上。分别应该用本地模式还是提交到 YARN 集群？说明理由。
+- 实操题：在 spark 容器的 pyspark 中，统计访问日志中每种终端（最后一个字段）的访问次数，按次数从大到小输出。写出代码和结果。
+- 实操题：编写程序 `my_status.py`：读取 HDFS 上的 `/xiaoxiang/logs/access.log`，统计每种状态码的访问次数，把结果用 `saveAsTextFile` 写到 HDFS 的 `/xiaoxiang/result/status`，然后分别以本地模式和 YARN 模式提交，记录两次的耗时，并用 `hdfs dfs -cat` 查看结果。
+- 实验报告：实验 6-1、实验 6-2、实验 6-3（选做）
+assessment: 课堂练习正确率、课后作业和实验报告计入平时成绩
+reflection: ''

@@ -72,3 +72,28 @@ spark.stop()
 | `df.groupby("a").agg(...)` | `df.groupBy("a").agg(...)` |
 | `df.sort_values("x", ascending=False)` | `df.orderBy(F.desc("x"))` |
 | `df.head(10)` | `df.show(10)` |
+
+## A.5 DataFrame 常用操作（第 7、8 章）
+
+先导入：`from pyspark.sql import functions as F` 和 `from pyspark.sql import Window`。
+
+| 想做什么 | 写法 | 见 |
+|---|---|---|
+| 读 CSV（全部当字符串） | `spark.read.csv(路径, header=True)` | 7.2.2 |
+| 读文本、Parquet | `spark.read.text(路径)`、`spark.read.parquet(路径)` | 7.2.2 |
+| 看结构、前几行、概况 | `df.printSchema()`、`df.show(5)`、`df.describe("列").show()` | 7.2.3 |
+| 选列、过滤、新增列 | `df.select(...)`、`df.filter(条件)`、`df.withColumn("名", 表达式)` | 7.2.3 |
+| 多个条件 | <code>(条件1) &amp; (条件2)</code>、<code>(条件1) &#124; (条件2)</code>、<code>~条件</code> | 7.2.3 |
+| 每列空值个数 | `df.select([F.sum(F.col(c).isNull().cast("int")).alias(c) for c in df.columns])` | 7.3.2 |
+| 去重 | `df.dropDuplicates()`、`df.dropDuplicates(["order_id"])` | 7.3.1 |
+| 缺失值 | `df.dropna(subset=[...])`、`df.fillna({"列": 值})`、`F.coalesce(列1, 列2)` | 7.3.2 |
+| 类型转换（不报错） | `F.col("amount").try_cast("decimal(10,2)")` | 7.3.3 |
+| 字符串 | `F.trim`、`F.lower`、`F.regexp_replace(列, 模式, 替换)`、`F.regexp_extract(列, 模式, 组号)`、`列.rlike(模式)` | 7.3.4 |
+| 解析时间 | `F.try_to_timestamp("列", F.lit("yyyy/M/d HH:mm:ss"))` | 7.3.5 |
+| 连接 | `df.join(另一个, "列名", "left")` | 7.4 |
+| 写 Parquet（按日期分区） | `df.write.mode("overwrite").partitionBy("dt").parquet(路径)` | 7.5 |
+| 分组聚合 | `df.groupBy("a").agg(F.sum("x").alias("s"), F.countDistinct("u"))` | 8.2.1 |
+| 透视表 | `df.groupBy("行").pivot("列").agg(F.sum("x"))` | 8.2.3 |
+| 写 SQL | `df.createOrReplaceTempView("t")`，`spark.sql("SELECT ... FROM t")` | 8.1.2 |
+| 分组排名 | `F.row_number().over(Window.partitionBy("a").orderBy(F.desc("x")))` | 8.3 |
+| 累计、移动平均、环比 | `.rowsBetween(Window.unboundedPreceding, 0)`、`.rowsBetween(-6, 0)`、`F.lag("x", 1)` | 8.3 |

@@ -59,6 +59,7 @@ nav:
     - "分区表查询": sims/partition-query/index.md
     - "Spark 作业怎样拆成 Stage 和 Task": sims/spark-stages/index.md
     - "数据清洗流水线": sims/cleaning-pipeline/index.md
+    - "窗口函数": sims/window-functions/index.md
   - 学习图谱: learning-graph/index.md
   - 常见问题: faq/index.md
   - "在线模拟卷": mock-exam.md

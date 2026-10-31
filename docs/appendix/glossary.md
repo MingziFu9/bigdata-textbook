@@ -159,7 +159,7 @@ description: 本书主要术语的中英文名称、简明定义和例子，按�
 | <span id="g-Schema"></span>Schema | Schema | DataFrame 的结构，即每一列的列名、类型和能否为空 | `printSchema()` 显示 `amount: double` |
 | <span id="g-ANSI-模式"></span>ANSI 模式 | ANSI Mode | Spark 4 默认开启的 SQL 规则：类型转换失败、除以 0 等直接报错而不是悄悄返回空值 | `cast('¥59.80' as decimal)` 报 CAST_INVALID_INPUT |
 | <span id="g-try_cast"></span>try_cast | try_cast | 与 cast 相同的类型转换，但转换失败时返回 NULL 而不报错 | `F.col("amount").try_cast("decimal(10,2)")` |
-| <span id="g-正则表达式"></span>正则表达式 | Regular Expression | 描述文本模式的小语言，用来查找、提取或替换符合某种模式的字符串 | `(省\|市\|自治区)$` 匹配结尾的“省”“市”“自治区” |
+| <span id="g-正则表达式"></span>正则表达式 | Regular Expression | 描述文本模式的小语言，用来查找、提取或替换符合某种模式的字符串 | <code>(省&#124;市&#124;自治区)$</code> 匹配结尾的“省”“市”“自治区” |
 | <span id="g-左连接"></span>左连接 | Left Join | 保留左表的全部行，右表能匹配上的补充列、匹配不上的填 NULL | 订单表左连接用户表补省份 |
 | <span id="g-宽表"></span>宽表 | Wide Table | 把事实表和多张维度表合并在一起、列很多的表，便于直接分析 | 订单 + 用户 + 商品合成的 16 列宽表 |
 | <span id="g-Parquet"></span>Parquet | Apache Parquet | 开源的列式存储文件格式，自带表结构、压缩率高，是 Spark 默认的文件格式 | 70.2 MB 的日志存成 Parquet 后为 19.1 MB |
@@ -169,6 +169,20 @@ description: 本书主要术语的中英文名称、简明定义和例子，按�
 
 | 术语 | 英文 | 定义 | 例子 |
 |---|---|---|---|
+| <span id="g-Spark-SQL"></span>Spark SQL | Spark SQL | Spark 处理结构化数据的模块，可以用 DataFrame 函数或 SQL 语句完成同样的计算，两者共用一个执行引擎 | `spark.sql("SELECT ...")` 返回一个 DataFrame |
+| <span id="g-临时视图"></span>临时视图 | Temporary View | 把 DataFrame 注册成一个表名，供 SQL 语句查询，程序结束后消失 | `df.createOrReplaceTempView("orders")` |
+| <span id="g-透视表"></span>透视表 | Pivot Table | 把某一列的不同取值展开成多列的汇总表，行、列各是一个维度 | 行是会员等级、列是品类、格子里是销售额 |
+| <span id="g-移动平均"></span>移动平均 | Moving Average | 当前行和前面若干行的平均值，用来平滑每天的波动，看清趋势 | 每天的 7 日移动平均销售额 |
+| <span id="g-环比"></span>环比 | Period-over-Period Growth | 本期与上一期相比的变化率：（本期 − 上期）÷ 上期 | 9 月 2 日销售额比 9 月 1 日增长 12.3% |
+| <span id="g-同比"></span>同比 | Year-over-Year Growth | 本期与去年同期相比的变化率 | 2026 年 9 月与 2025 年 9 月比较 |
+| <span id="g-GMV"></span>GMV | Gross Merchandise Volume | 成交总额，一段时间内成交订单的金额之和；本书只算已完成的订单 | 9 月 GMV 为 1.42 亿元 |
+| <span id="g-客单价"></span>客单价 | Average Revenue per Buyer | 销售额 ÷ 下单用户数，平均每个用户花了多少钱 | 9 月客单价 2911.70 元 |
+| <span id="g-复购率"></span>复购率 | Repurchase Rate | 一段时间内购买 2 次及以上的用户占下单用户的比例 | 9 月复购率 37.7% |
+| <span id="g-转化率"></span>转化率 | Conversion Rate | 完成目标行为（如下单）的用户占访问用户的比例 | 9 月 30 日访问到下单的转化率 3.11% |
+| <span id="g-留存率"></span>留存率 | Retention Rate | 某一时期的用户中，在之后某个时期仍然活跃的比例 | 第一周下单的用户第二周又下单的占 25.5% |
+| <span id="g-RFM-模型"></span>RFM 模型 | RFM Model | 用最近一次购买距今天数（R）、购买次数（F）、购买金额（M）衡量用户价值并分层的方法 | 把 48644 个用户分成 8 类 |
+| <span id="g-用户分层"></span>用户分层 | Customer Segmentation | 按价值或行为把用户分成若干类，对不同的类采取不同的运营办法 | 重要价值用户 6911 人，贡献 50.9% 的销售额 |
+| <span id="g-JDBC"></span>JDBC | Java Database Connectivity | Java 程序访问关系数据库的标准接口，Spark 通过它读写 MySQL 等数据库 | `df.write.jdbc("jdbc:mysql://mysql:3306/xiaoxiang", ...)` |
 
 ## 第 9 章 Kafka 与实时数据处理
 

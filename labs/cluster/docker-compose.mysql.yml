@@ -1,0 +1,17 @@
+# 第 8 章：MySQL 数据库，用来存放 Spark 算好的报表结果
+# 启动：docker compose -f docker-compose.yml -f docker-compose.spark.yml -f docker-compose.mysql.yml up -d
+# 进入：docker compose -f docker-compose.yml -f docker-compose.spark.yml -f docker-compose.mysql.yml exec mysql mysql -uroot -pxiaoxiang xiaoxiang
+services:
+  mysql:
+    image: mysql:8.4
+    hostname: mysql
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: xiaoxiang      # 仅供实验，真实环境要用复杂密码
+      MYSQL_DATABASE: xiaoxiang           # 第一次启动时自动建库
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+volumes:
+  mysql-data:

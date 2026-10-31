@@ -17,3 +17,4 @@ description: 本书配套的交互动画，可以在浏览器里直接操作，�
 | 第 5 章 | [分区表查询](partition-query/index.md) | 比较分区表和不分区的表，看带不带分区条件时要读多少数据 |
 | 第 6 章 | [Spark 作业怎样拆成 Stage 和 Task](spark-stages/index.md) | 拼一个 RDD 程序，看行动怎样触发 Job、Shuffle 怎样切出 Stage、Task 怎样分批运行 |
 | 第 7 章 | [数据清洗流水线](cleaning-pipeline/index.md) | 勾选清洗步骤，看一份脏订单一步步变干净，顺序错了会丢哪些数据 |
+| 第 8 章 | [窗口函数](window-functions/index.md) | 选择分组排名、累计、移动平均、环比，逐行看每一行的结果怎样算出来 |

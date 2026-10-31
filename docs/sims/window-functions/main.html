@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>窗口函数</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.tw { overflow-x:auto; }
+table.w { border-collapse:collapse; font-size:12.5px; width:100%; min-width:520px; }
+table.w th, table.w td { border:1px solid var(--line); padding:3px 7px; text-align:right; font-variant-numeric:tabular-nums; transition:background .2s; }
+table.w th { background:#f5f7fa; font-weight:600; text-align:center; }
+table.w td.l { text-align:left; }
+tr.part td { background:#f3f4fb; }
+tr.frame td { background:var(--soft); }
+tr.cur td { background:#c5cae9; font-weight:600; }
+td.res { color:var(--accent); font-weight:600; }
+td.res.empty { color:#b0bec5; font-weight:normal; }
+pre.sql { background:#f5f7fa; border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:0; font-size:12.5px; white-space:pre-wrap; }
+.calc { font-size:13.5px; min-height:3.2em; }
+.calc code { background:#f5f7fa; padding:0 4px; border-radius:3px; }
+.legend span { display:inline-block; padding:0 6px; border-radius:3px; margin-right:6px; font-size:11.5px; }
+</style>
+</head>
+<body>
+<h1>窗口函数：每一行的结果是怎样算出来的</h1>
+<div class="sub">选一个窗口函数，按“下一行”逐行计算：深色是当前行，浅紫色是参与这一行计算的“窗口”。和 GROUP BY 不同，窗口函数不会把多行合成一行，每一行都保留，只是多了一列结果。</div>
+
+<div class="row" id="fns"></div>
+<div class="row" id="opt"></div>
+<div class="box"><h2>① 对应的写法</h2><pre class="sql" id="sql"></pre></div>
+<div class="row"><button class="main" id="next">下一行</button><button id="all">全部算完</button><button id="reset">重来</button></div>
+<div class="box"><h2>② 计算过程</h2><div class="calc" id="calc"></div></div>
+<div class="box"><h2>③ 数据（实验 8-1 的真实结果，只算已完成的订单）</h2>
+<div class="legend"><span style="background:#c5cae9">当前行</span><span style="background:#e8eaf6">窗口中的行</span><span style="background:#f3f4fb">同一分组</span></div>
+<div class="tw"><table class="w" id="tb"></table></div></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const PC = [["广东", "手机数码", 8809804.7], ["广东", "家居日用", 299664.4], ["浙江", "手机数码", 4590529.6], ["广东", "食品生鲜", 193241.7], ["浙江", "图书文具", 22770.0], ["广东", "图书文具", 44955.0], ["四川", "服饰鞋包", 625909.1], ["四川", "手机数码", 5902457.8], ["广东", "母婴玩具", 274646.7], ["浙江", "母婴玩具", 142777.0], ["四川", "家居日用", 202000.0], ["浙江", "家居日用", 151146.4], ["四川", "母婴玩具", 149588.4], ["浙江", "美妆个护", 117183.9], ["广东", "服饰鞋包", 966275.4], ["浙江", "食品生鲜", 101385.1], ["浙江", "服饰鞋包", 483050.0], ["广东", "美妆个护", 292237.3], ["四川", "图书文具", 28803.6], ["浙江", "家用电器", 988286.5], ["四川", "美妆个护", 203875.8], ["广东", "家用电器", 2090733.2], ["四川", "家用电器", 1275086.3], ["四川", "食品生鲜", 116425.5]];
+const DAY = [["2026-09-01", 4471291.7], ["2026-09-02", 5019066.2], ["2026-09-03", 4660418.8], ["2026-09-04", 4644829.8], ["2026-09-05", 4820731.8], ["2026-09-06", 4580179.6], ["2026-09-07", 4485054.9], ["2026-09-08", 4866853.2], ["2026-09-09", 4543318.9], ["2026-09-10", 4625904.5], ["2026-09-11", 4779753.6], ["2026-09-12", 4418440.4], ["2026-09-13", 4652912.7], ["2026-09-14", 4773577.3], ["2026-09-15", 4671704.9], ["2026-09-16", 4534163.0], ["2026-09-17", 4636353.2], ["2026-09-18", 4892732.5], ["2026-09-19", 4828044.2], ["2026-09-20", 4886772.6], ["2026-09-21", 4993026.6], ["2026-09-22", 4646377.9], ["2026-09-23", 4930542.8], ["2026-09-24", 4880456.1], ["2026-09-25", 4364958.5], ["2026-09-26", 4628666.9], ["2026-09-27", 4758929.9], ["2026-09-28", 5025595.4], ["2026-09-29", 4897527.3], ["2026-09-30", 4718453.6]].slice(0, 14);
+const yuan = v => v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const FNS = {
+  rank: { name: '分组排名 row_number', kind: 'rank' },
+  cum: { name: '累计 sum', kind: 'day' },
+  ma: { name: '移动平均 avg', kind: 'day' },
+  lag: { name: '环比 lag', kind: 'day' },
+};
+let fn = 'rank', grouped = true, k = 7, cur = -1;
+function rankRows() {
+  const rows = PC.filter(r => r[0] === '广东' || r[0] === '浙江').map(r => ({ p: r[0], c: r[1], g: r[2] }));
+  if (grouped) rows.sort((a, b) => a.p.localeCompare(b.p, 'zh') || b.g - a.g);
+  else rows.sort((a, b) => b.g - a.g);
+  return rows;
+}
+function sqlText() {
+  if (fn === 'rank') return grouped
+    ? "SELECT province, category, gmv,\n       ROW_NUMBER() OVER (PARTITION BY province ORDER BY gmv DESC) AS rk\nFROM t\n\n# DataFrame 写法\nw = Window.partitionBy(\"province\").orderBy(F.desc(\"gmv\"))\ndf.withColumn(\"rk\", F.row_number().over(w))"
+    : "SELECT province, category, gmv,\n       ROW_NUMBER() OVER (ORDER BY gmv DESC) AS rk\nFROM t\n\n# DataFrame 写法\nw = Window.orderBy(F.desc(\"gmv\"))\ndf.withColumn(\"rk\", F.row_number().over(w))";
+  if (fn === 'cum') return "SELECT dt, gmv,\n       SUM(gmv) OVER (ORDER BY dt ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum\nFROM daily\n\n# DataFrame 写法\nw = Window.orderBy(\"dt\").rowsBetween(Window.unboundedPreceding, 0)\ndf.withColumn(\"cum\", F.sum(\"gmv\").over(w))";
+  if (fn === 'ma') return `SELECT dt, gmv,\n       AVG(gmv) OVER (ORDER BY dt ROWS BETWEEN ${k - 1} PRECEDING AND CURRENT ROW) AS ma${k}\nFROM daily\n\n# DataFrame 写法\nw = Window.orderBy("dt").rowsBetween(-${k - 1}, 0)\ndf.withColumn("ma${k}", F.avg("gmv").over(w))`;
+  return "SELECT dt, gmv,\n       LAG(gmv, 1) OVER (ORDER BY dt) AS prev,\n       ROUND((gmv - prev) / prev * 100, 1) AS dod\nFROM daily\n\n# DataFrame 写法\nw = Window.orderBy(\"dt\")\ndf.withColumn(\"prev\", F.lag(\"gmv\", 1).over(w))";
+}
+function compute(i) {
+  if (fn === 'rank') {
+    const rows = rankRows(), r = rows[i];
+    const part = grouped ? rows.filter(x => x.p === r.p) : rows;
+    const pos = part.indexOf(r) + 1;
+    return { frame: part.slice(0, pos).map(x => rows.indexOf(x)), part: part.map(x => rows.indexOf(x)), val: pos,
+      text: grouped ? `当前行是 <b>${r.p} · ${r.c}</b>。在“${r.p}”这一组（${part.length} 行）里按销售额从大到小排，它前面（含自己）有 ${pos} 行，所以 rk = <b>${pos}</b>。换到另一个省份，编号重新从 1 开始。`
+                    : `不分组时，16 行放在一起排。<b>${r.p} · ${r.c}</b> 排第 <b>${pos}</b>。想要“每个省份的前 3 名”，就得按省份分组（PARTITION BY）。` };
+  }
+  const d = DAY;
+  if (fn === 'cum') {
+    const s = d.slice(0, i + 1).reduce((a, x) => a + x[1], 0);
+    return { frame: [...Array(i + 1).keys()], val: yuan(s), text: `窗口是从第 1 行到当前行（共 ${i + 1} 行）：${i < 3 ? d.slice(0, i + 1).map(x => yuan(x[1])).join(' + ') : yuan(d[0][1]) + ' + … + ' + yuan(d[i][1])} = <b>${yuan(s)}</b>` };
+  }
+  if (fn === 'ma') {
+    const lo = Math.max(0, i - k + 1), win = d.slice(lo, i + 1), s = win.reduce((a, x) => a + x[1], 0);
+    return { frame: [...Array(i - lo + 1).keys()].map(x => x + lo), val: yuan(s / win.length),
+      text: `窗口是当前行和前 ${k - 1} 行${win.length < k ? `，但前面只有 ${win.length - 1} 行，所以只用这 ${win.length} 行` : ''}：（${win.length} 天的销售额之和 ${yuan(s)}）÷ ${win.length} = <b>${yuan(s / win.length)}</b>` };
+  }
+  if (i === 0) return { frame: [0], val: null, text: '第 1 行前面没有行，LAG 取不到上一行，结果是 <b>NULL</b>，环比也是 NULL。' };
+  const dod = (d[i][1] - d[i - 1][1]) / d[i - 1][1] * 100;
+  return { frame: [i - 1, i], val: dod.toFixed(1) + '%', text: `LAG 取上一行 ${d[i - 1][0]} 的销售额 ${yuan(d[i - 1][1])}；环比 =（${yuan(d[i][1])} − ${yuan(d[i - 1][1])}）÷ ${yuan(d[i - 1][1])} × 100 = <b>${dod.toFixed(1)}%</b>` };
+}
+function render() {
+  $('fns').innerHTML = Object.entries(FNS).map(([key, f]) => `<button class="${key === fn ? 'on' : ''}" data-f="${key}">${f.name}</button>`).join('');
+  document.querySelectorAll('#fns button').forEach(b => b.onclick = () => { fn = b.dataset.f; cur = -1; render(); });
+  if (fn === 'rank') $('opt').innerHTML = `<label><input type="checkbox" id="grp" ${grouped ? 'checked' : ''}> 按省份分组（PARTITION BY province）</label>`;
+  else if (fn === 'ma') $('opt').innerHTML = `<label>窗口大小 <select id="kk">${[3, 5, 7].map(x => `<option ${x === k ? 'selected' : ''}>${x}</option>`).join('')}</select> 天</label>`;
+  else $('opt').innerHTML = '';
+  if ($('grp')) $('grp').onchange = e => { grouped = e.target.checked; cur = -1; render(); };
+  if ($('kk')) $('kk').onchange = e => { k = +e.target.value; cur = -1; render(); };
+  $('sql').textContent = sqlText();
+  const isRank = fn === 'rank';
+  const rows = isRank ? rankRows() : DAY;
+  const n = rows.length;
+  const info = cur >= 0 ? compute(cur) : null;
+  const resName = { rank: 'rk', cum: 'cum', ma: 'ma' + k, lag: 'dod' }[fn];
+  let h = isRank ? `<tr><th>province</th><th>category</th><th>gmv</th><th>${resName}</th></tr>` : `<tr><th>dt</th><th>gmv</th><th>${resName}</th></tr>`;
+  rows.forEach((r, i) => {
+    let cls = '';
+    if (info && info.part && info.part.includes(i)) cls = 'part';
+    if (info && info.frame.includes(i)) cls = 'frame';
+    if (i === cur) cls = 'cur';
+    const v = i <= cur ? compute(i).val : undefined;
+    const res = v === undefined ? '<td class="res empty">?</td>' : v === null ? '<td class="res">NULL</td>' : `<td class="res">${v}</td>`;
+    h += isRank ? `<tr class="${cls}"><td class="l">${r.p}</td><td class="l">${r.c}</td><td>${yuan(r.g)}</td>${res}</tr>`
+                : `<tr class="${cls}"><td class="l">${r[0]}</td><td>${yuan(r[1])}</td>${res}</tr>`;
+  });
+  $('tb').innerHTML = h;
+  $('calc').innerHTML = info ? `第 ${cur + 1} 行：${info.text}` : '按“下一行”开始逐行计算。';
+  $('next').disabled = cur >= n - 1;
+}
+$('next').onclick = () => { cur++; render(); };
+$('all').onclick = () => { cur = (fn === 'rank' ? rankRows() : DAY).length - 1; render(); };
+$('reset').onclick = () => { cur = -1; render(); };
+render();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

@@ -9,9 +9,11 @@
 | `xiaoxiang/users.csv` | 用户表：用户编号、性别、年龄、省份、城市、注册日期、会员等级 | 10 万行 | 同上 | 第 5 章起 |
 | `xiaoxiang/products.csv` | 商品表：商品编号、名称、品类（8 类）、价格、店铺 | 2000 行 | 同上 | 第 5 章起 |
 | `xiaoxiang/orders.csv` | 2026 年 9 月的订单表：订单编号、用户、商品、数量、金额、下单时间、省份、支付方式、状态 | 10 万行 | 同上 | 第 1 章起 |
-| `xiaoxiang/reviews.csv` | 商品评价：评价编号、商品、用户、评分、内容（约 5% 是近似重复的刷评） | 2 万行 | 同上 | 第 4、7 章 |
+| `xiaoxiang/reviews.csv` | 商品评价：评价编号、商品、用户、评分、内容（约 5% 是近似重复的刷评） | 2 万行 | 同上 | 第 4 章 |
 | `xiaoxiang_big/access.log` | 1000 万行访问日志，用于观察数据变大后的现象：`python data/make_data.py --only logs --logs 10000000 --out data/xiaoxiang_big` | 1000 万行，701.8 MB | 同上，不进仓库 | 实验 3-1、3-2、4-3 |
-| `scale/orders_N.csv` | 实验 1-1 由 `ch01/lab1_1_data_size.py` 生成的 1 万～300 万行订单，用于比较数据规模 | 0.8～240 MB | 同上，不进仓库 | 实验 1-1 |
+| `scale/orders_N.csv` | 实验 1-1 由 `ch01/lab1_1_data_size.py` 生成的 1 万～300 万行订单，用于比较数据规模 | 0.8～240 MB | 同上，不进仓库 | 实验 1-1、5-2、8-3 |
+| `xiaoxiang_dirty/` | 实验 7-1 由 `ch07/make_dirty.py` 从 `xiaoxiang/` “弄脏”得到的订单 `orders_dirty.csv`（重复、缺失、格式不一、异常值）和日志 `access_dirty.log`（截断、乱码、空行），随机种子 7 | 102000 行；1001000 行 | 同上，不进仓库 | 第 7 章 |
+| `xiaoxiang_clean/` | 第 7、8 章程序写出的 Parquet：清洗后的订单 `orders/`（按 dt 分区）、日志 `access_log/`、宽表 `order_wide/`、RFM 结果 `rfm/` | 99700 行订单等 | 实验程序生成，不进仓库 | 第 7～8 章 |
 | `search_words.txt` | 4.2.2 节“算一算”用的三行搜索关键词 | 3 行 | 教材编写 | 第 4 章 |
 
 **规模要求**：模拟数据都由脚本现场生成，不提交到仓库（见 `.gitignore`）。默认规模在普通笔记本上几秒到一分钟就能生成和处理完；需要观察“数据变大以后会发生什么”的实验，用参数把规模调大。

@@ -6,7 +6,7 @@ description: 实验所需的软硬件、随书 Docker 集群的启动与网页�
 # 附录 C 实验环境与数据说明
 
 !!! note "编写中"
-    本附录随各章同步完善。目前收录了第 1～4 章用到的环境、集群和数据说明，第 5 章起的 Hive、Spark、Kafka 部分写到对应章节时补充。
+    本附录随各章同步完善。目前收录了第 1～8 章用到的环境、集群和数据说明，Kafka 部分写到第 9 章时补充。
 
 ## C.1 软硬件要求
 
@@ -61,6 +61,25 @@ docker compose down -v        # 停止并删除 HDFS 中的全部数据，回到
 
 hosts 文件在 Windows 上是 `C:\Windows\System32\drivers\etc\hosts`（用管理员身份打开记事本编辑），在 macOS 和 Linux 上是 `/etc/hosts`（用 `sudo` 编辑）。
 
+**第 5 章起加上 Hive、Spark、MySQL。**这三部分各有一个配置文件，需要哪个就叠加哪个 `-f`，例如实验 8-3 同时要用到全部：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.hive.yml -f docker-compose.spark.yml -f docker-compose.mysql.yml up -d
+```
+
+| 配置文件 | 增加的容器 | 端口 | 说明 |
+|---|---|---|---|
+| `docker-compose.hive.yml` | metastore、hiveserver2（`apache/hive:4.2.1`） | 9083、10000、10002 | 元数据存在 Derby 数据库（数据卷 hive-meta）；Tez 在 hiveserver2 容器内以本地模式运行，读写集群的 HDFS，所以 Hive 的查询不出现在 8088 网页上；`hive-conf/` 让 Hive 写 HDFS 时用 2 个副本 |
+| `docker-compose.spark.yml` | spark（`apache/spark:4.1.4-scala2.13-java21-python3-ubuntu`） | 4040 | 常驻的 Spark 命令行容器，默认本地模式；`spark-conf/` 中设定内存、时区、YARN 用的 Java 21（数据卷 spark-jdk 共享给 worker1、worker2）和 Hive Metastore 的连接 |
+| `docker-compose.mysql.yml` | mysql（`mysql:8.4`） | 3306 | 第 8 章存放报表结果，数据卷 mysql-data |
+
+几点说明：
+
+1. 只开需要的容器。全部开启时空闲内存占用约 7 GB，Docker 至少要分配 8 GB；只用 Spark 本地模式时，`docker-compose.yml` 加 `docker-compose.spark.yml` 就够了。
+2. 第 5 章起不需要实验 2-3 加入的 worker3；提交 Spark 作业到 YARN 时更不要启动它，worker3 没有挂载 Java 21。
+3. Spark 读写 Hive 表要用 Hive 4 的客户端程序库，它们来自 hiveserver2 容器（数据卷 hive-lib），所以要先启动过一次 Hive；`spark-defaults.conf` 中的 `spark.sql.hive.metastore.version` 设为 4.1.0。用 Spark 读 Hive 的 CSV 文本表时，表头会被当成一行数据，见 8.5.1 节。
+4. 第 8 章写 MySQL 要用 JDBC 驱动 `mysql-connector-j-8.4.0.jar`，放在 `labs/jars/`，下载方法见实验 8-3。
+
 ## C.4 模拟数据
 
 全书的实验数据是虚构电商平台“小象优选”的模拟数据，由 `labs/data/make_data.py` 按固定随机种子生成，同样的参数每次生成的内容完全相同，所以你的结果可以和书上逐行对照。各文件的字段和规模见 `labs/data/README.md`。
@@ -70,6 +89,8 @@ cd labs
 python data/make_data.py                                   # 默认规模，约 10 秒
 python data/make_data.py --only logs --logs 10000000 --out data/xiaoxiang_big   # 1000 万行日志，约 80 秒
 ```
+
+第 7 章另有脚本 `labs/ch07/make_dirty.py`，从上面的数据“弄脏”出一份带重复、缺失、格式不一和异常值的订单与日志（随机种子 7），供清洗实验使用；清洗结果存放在 `labs/data/xiaoxiang_clean/`。
 
 数据中的用户编号、IP 地址、订单都是随机生成的，不对应任何真实的人和机构。
 
@@ -84,3 +105,7 @@ python data/make_data.py --only logs --logs 10000000 --out data/xiaoxiang_big   
 | 容器反复重启，状态 `Exited (137)` | 内存不够 | 关闭其他程序；Docker Desktop 中把内存调到 6 GB 以上 |
 | 改了配置文件，`getconf` 仍显示旧值 | 没有重启，或编辑器替换了文件 | `docker compose restart` |
 | `docker compose up` 报端口被占用 | 本机已有程序占用了 9870、8088 等端口 | 关闭占用端口的程序，或修改 `docker-compose.yml` 中 `ports` 冒号左边的端口号 |
+| beeline 执行 `-f 文件` 没有反应，或多条语句只执行了一条 | 随书镜像中的 beeline 不支持这种用法；分号后面同一行的注释会让下一条语句被吞掉 | 进入 beeline 后用 `source /labs/...sql;`；注释单独写一行 |
+| Spark 报 `[CAST_INVALID_INPUT]` | Spark 4 默认开启 ANSI 模式，转换失败直接报错 | 脏数据用 `try_cast`、`try_to_timestamp`，见 7.3.3 节 |
+| Spark 读 Hive 表报 `Invalid method name: 'get_table'` | Spark 自带的 Hive 客户端版本太旧，连不上 Hive 4 的 Metastore | 使用随书 `spark-conf/`（Metastore 版本 4.1.0），并先启动过一次 Hive |
+| `ClassNotFoundException: com.mysql.cj.jdbc.Driver` | 没有 JDBC 驱动 | 下载到 `labs/jars/`，运行时加 `--jars`，见实验 8-3 |

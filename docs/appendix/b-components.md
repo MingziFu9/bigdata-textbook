@@ -8,7 +8,7 @@ description: 本书用到的 HDFS、YARN、MapReduce、Hive、Spark、Kafka 等�
 按组件分节，每节列出书中实验真正用到的命令。在随书集群上，这些命令都在 master 容器里运行（`docker compose exec master bash`）。
 
 !!! note "编写中"
-    目前收录了第 2～4 章用到的 Docker、HDFS、YARN 和 MapReduce 命令；Hive、Spark、Kafka 部分随各章补充。
+    目前收录了第 2～8 章用到的 Docker、HDFS、YARN、MapReduce、Hive、Spark 和 MySQL 命令；Kafka 部分随第 9 章补充。
 
 ## B.1 Docker 与随书集群
 
@@ -72,3 +72,46 @@ mapred streaming \
 | `yarn application -list -appStates ALL` | 列出所有作业及状态 |
 | `yarn application -kill <作业编号>` | 终止作业 |
 | `yarn logs -applicationId <作业编号> -log_files stderr` | 查看各任务的 stderr 日志（Python 的报错在这里） |
+
+## B.5 Hive（第 5 章）
+
+在 `labs/cluster` 目录下运行，命令都要带上 `-f docker-compose.yml -f docker-compose.hive.yml`（下表简写为 `docker compose ...`）。
+
+| 命令 | 作用 |
+|---|---|
+| `docker compose ... up -d` | 启动集群和 Hive（metastore、hiveserver2 两个容器） |
+| `docker compose ... exec hiveserver2 beeline -u jdbc:hive2://localhost:10000 -n root` | 进入 beeline，`!quit` 退出 |
+| `source /labs/ch05/文件.sql;` | 在 beeline 中执行一个 SQL 文件（不要在分号后面同一行写注释） |
+| `SHOW DATABASES;`、`USE xiaoxiang;`、`SHOW TABLES;` | 查看库和表 |
+| `DESCRIBE FORMATTED 表名;` | 查看表类型（内部 / 外部）、存放位置、格式 |
+| `SHOW PARTITIONS 表名;` | 查看分区表的分区 |
+| `SET hive.exec.dynamic.partition.mode=nonstrict;` | 动态分区前设置 |
+
+HiveServer2 的网页：<http://localhost:10002>，可以看到最近执行过的查询和耗时。
+
+## B.6 Spark（第 6～8 章）
+
+在 `labs/cluster` 目录下运行，命令都要带上 `-f docker-compose.yml -f docker-compose.spark.yml`。
+
+| 命令 | 作用 |
+|---|---|
+| `docker compose ... up -d` | 启动集群和 spark 容器 |
+| `docker compose ... exec spark bash` | 进入 spark 容器 |
+| `pyspark` | 交互环境，已建好 `spark` 和 `sc`，`exit()` 退出 |
+| `spark-submit /labs/chNN/程序.py` | 以本地模式运行程序 |
+| `spark-submit --master yarn --num-executors 2 /labs/...` | 提交到 YARN 集群（第 6 章） |
+| `spark-submit --jars /labs/jars/mysql-connector-j-8.4.0.jar /labs/...` | 带上 MySQL 的 JDBC 驱动（第 8 章） |
+
+Spark UI：程序运行期间打开 <http://localhost:4040>。路径写法：`file:///labs/...` 是容器里的本地文件，`/xiaoxiang/...` 是 HDFS 上的文件。
+
+## B.7 MySQL（第 8 章）
+
+命令要带上 `-f docker-compose.yml -f docker-compose.mysql.yml`。用户 root，密码 xiaoxiang，数据库 xiaoxiang。
+
+| 命令 | 作用 |
+|---|---|
+| `docker compose ... up -d mysql` | 启动 MySQL |
+| `docker compose ... exec mysql mysql --default-character-set=utf8mb4 -uroot -pxiaoxiang xiaoxiang` | 进入 MySQL 命令行，`exit` 退出 |
+| `SHOW TABLES;`、`DESCRIBE 表名;` | 查看表和表结构 |
+
+连接地址：容器之间用 `jdbc:mysql://mysql:3306/xiaoxiang`，本机程序用 `localhost:3306`。

@@ -6,3 +6,6 @@ numpy==2.5.3          # 生成模拟数据（data/make_data.py）
 pandas==3.0.5         # 生成模拟数据、查看结果
 pyspark==4.1.4        # 第 1 章起：本机运行 Spark（还需要 Java 17 或 21）
 requests==2.32.5      # 第 3 章：通过 HttpFS 用 Python 读写 HDFS
+matplotlib==3.11.2     # 第 8 章：pandas 画图
+PyMySQL==2.2.8         # 第 8 章：pandas 读 MySQL
+SQLAlchemy==2.1.6      # 第 8 章：pandas 读 MySQL
