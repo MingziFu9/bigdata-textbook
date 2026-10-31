@@ -60,7 +60,7 @@ function axes(min, max, ticks = 5, h = H) {
   return s;
 }
 function bars(data, min = 0, max = null, opt = {}) {
-  if (max == null) { const m = Math.max(...data.map(d => d[1])) * 1.05, e = 10 ** Math.floor(Math.log10(m)); max = [1, 2, 2.5, 5, 10].map(k => k * e).find(v => v >= m); }
+  if (max == null) { const m = Math.max(...data.map(d => d[1])) * 1.05, e = 10 ** Math.floor(Math.log10(m)); max = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map(k => k * e).find(v => v >= m); }
   const bw = (W - L - R) / data.length, y = v => H - B - (H - B - T) * (v - min) / (max - min);
   let s = axes(min, max);
   data.forEach(([k, v], i) => {

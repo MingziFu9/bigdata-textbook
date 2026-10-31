@@ -44,8 +44,8 @@
 <script src="data.js"></script>
 <script>
 (function () {
-  var COLORS = ["#607d8b","#8d6e63","#7b1fa2","#00897b","#f9a825","#e53935","#3949ab","#d81b60","#43a047","#546e7a"];
-  var BG = ["#eceff1","#efebe9","#f3e5f5","#e0f2f1","#fff8e1","#ffebee","#e8eaf6","#fce4ec","#e8f5e9","#eceff1"];
+  var COLORS = ["#607d8b","#8d6e63","#7b1fa2","#00897b","#f9a825","#e53935","#3949ab","#d81b60","#43a047","#0288d1","#ef6c00"];
+  var BG = ["#eceff1","#efebe9","#f3e5f5","#e0f2f1","#fff8e1","#ffebee","#e8eaf6","#fce4ec","#e8f5e9","#e1f5fe","#fff3e0"];
   var byId = {}, pre = {}, post = {}, sel = null, hidden = {};
   NODES.forEach(function (n) { byId[n.id] = n; pre[n.id] = []; post[n.id] = []; });
   EDGES.forEach(function (e) { pre[e[1]].push(e[0]); post[e[0]].push(e[1]); });

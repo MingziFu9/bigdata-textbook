@@ -44,7 +44,7 @@
 | [第 12 章](chapters/12-visualization-project/index.md) | 0.9 万 | 3 | 23（18） | 15 | 10 | 1 |
 | **合计** | **10.6 万** | **36** | **276（216）** | **198** | **118** | **15** |
 
-正文字数只统计汉字，不含代码和课后练习；单选、多选和判断题可以在网页上直接作答。配套学习资源：[交互动画](sims/index.md) 15 个 · [学习图谱](learning-graph/index.md) 135 个概念 · [常见问题](faq/index.md) 19 问 · [术语表](appendix/glossary.md) 198 条。
+正文字数只统计汉字，不含代码和课后练习；单选、多选和判断题可以在网页上直接作答。配套学习资源：[交互动画](sims/index.md) 15 个 · [学习图谱](learning-graph/index.md) 198 个概念 · [常见问题](faq/index.md) 27 问 · [术语表](appendix/glossary.md) 198 条。
 
 <!-- stats:end -->
 

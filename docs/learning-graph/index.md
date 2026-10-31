@@ -19,7 +19,7 @@ description: 全书核心概念及其先修关系，点一个概念就能看到�
 
 <!-- graph:start -->
 
-图谱共有 **135 个概念、175 条先修关系**，概念按章排列，颜色表示 8 个类别（计算模型、编程与统计、资源调度、大数据基础、实验环境、分布式存储、数据仓库、数据清洗与分析）。概念的定义都来自[附录 D 术语表](../appendix/glossary.md)，先修关系由编者根据各章内容整理。
+图谱共有 **198 个概念、253 条先修关系**，概念按章排列，颜色表示 11 个类别（计算模型、编程与统计、资源调度、大数据基础、实验环境、分布式存储、数据仓库、数据清洗与分析、实时处理、机器学习、可视化与合规）。概念的定义都来自[附录 D 术语表](../appendix/glossary.md)，先修关系由编者根据各章内容整理。
 
 ## 文字版
 
@@ -199,5 +199,88 @@ description: 全书核心概念及其先修关系，点一个概念就能看到�
     | [RFM 模型](../appendix/glossary.md#g-RFM-模型) | 数据清洗与分析 | [复购率](../appendix/glossary.md#g-复购率)、[GMV](../appendix/glossary.md#g-GMV) |
     | [用户分层](../appendix/glossary.md#g-用户分层) | 数据清洗与分析 | [RFM 模型](../appendix/glossary.md#g-RFM-模型) |
     | [JDBC](../appendix/glossary.md#g-JDBC) | 编程与统计 | [Spark SQL](../appendix/glossary.md#g-Spark-SQL) |
+
+??? note "第 9 章 实时处理（18 个概念）"
+
+    | 概念 | 类别 | 直接先修 |
+    |---|---|---|
+    | [消息队列](../appendix/glossary.md#g-消息队列) | 实时处理 | [流处理](../appendix/glossary.md#g-流处理) |
+    | [Kafka](../appendix/glossary.md#g-Kafka) | 实时处理 | [消息队列](../appendix/glossary.md#g-消息队列) |
+    | [Broker](../appendix/glossary.md#g-Broker) | 实时处理 | [Kafka](../appendix/glossary.md#g-Kafka) |
+    | [主题](../appendix/glossary.md#g-主题) | 实时处理 | [Kafka](../appendix/glossary.md#g-Kafka) |
+    | [生产者](../appendix/glossary.md#g-生产者) | 实时处理 | [主题](../appendix/glossary.md#g-主题) |
+    | [消费者组](../appendix/glossary.md#g-消费者组) | 实时处理 | [主题](../appendix/glossary.md#g-主题) |
+    | [偏移量](../appendix/glossary.md#g-偏移量) | 实时处理 | [消费者组](../appendix/glossary.md#g-消费者组) |
+    | [消费积压](../appendix/glossary.md#g-消费积压) | 实时处理 | [偏移量](../appendix/glossary.md#g-偏移量) |
+    | [Structured Streaming](../appendix/glossary.md#g-Structured-Streaming) | 实时处理 | [Spark SQL](../appendix/glossary.md#g-Spark-SQL)、[流处理](../appendix/glossary.md#g-流处理) |
+    | [无界表](../appendix/glossary.md#g-无界表) | 实时处理 | [Structured Streaming](../appendix/glossary.md#g-Structured-Streaming) |
+    | [事件时间](../appendix/glossary.md#g-事件时间) | 实时处理 | [Structured Streaming](../appendix/glossary.md#g-Structured-Streaming) |
+    | [滚动窗口](../appendix/glossary.md#g-滚动窗口) | 实时处理 | [事件时间](../appendix/glossary.md#g-事件时间) |
+    | [滑动窗口](../appendix/glossary.md#g-滑动窗口) | 实时处理 | [事件时间](../appendix/glossary.md#g-事件时间) |
+    | [水位线](../appendix/glossary.md#g-水位线) | 实时处理 | [事件时间](../appendix/glossary.md#g-事件时间) |
+    | [输出模式](../appendix/glossary.md#g-输出模式) | 实时处理 | [Structured Streaming](../appendix/glossary.md#g-Structured-Streaming) |
+    | [检查点](../appendix/glossary.md#g-检查点) | 实时处理 | [Structured Streaming](../appendix/glossary.md#g-Structured-Streaming)、[HDFS](../appendix/glossary.md#g-HDFS) |
+    | [Flink](../appendix/glossary.md#g-Flink) | 实时处理 | [Structured Streaming](../appendix/glossary.md#g-Structured-Streaming) |
+    | [实时数仓](../appendix/glossary.md#g-实时数仓) | 实时处理 | [数据仓库](../appendix/glossary.md#g-数据仓库)、[Kafka](../appendix/glossary.md#g-Kafka) |
+
+??? note "第 10 章 MLlib（18 个概念）"
+
+    | 概念 | 类别 | 直接先修 |
+    |---|---|---|
+    | [机器学习](../appendix/glossary.md#g-机器学习) | 机器学习 | [DataFrame](../appendix/glossary.md#g-DataFrame) |
+    | [特征](../appendix/glossary.md#g-特征) | 机器学习 | [机器学习](../appendix/glossary.md#g-机器学习) |
+    | [标签](../appendix/glossary.md#g-标签) | 机器学习 | [机器学习](../appendix/glossary.md#g-机器学习) |
+    | [训练集](../appendix/glossary.md#g-训练集) | 机器学习 | [标签](../appendix/glossary.md#g-标签) |
+    | [测试集](../appendix/glossary.md#g-测试集) | 机器学习 | [训练集](../appendix/glossary.md#g-训练集) |
+    | [过拟合](../appendix/glossary.md#g-过拟合) | 机器学习 | [测试集](../appendix/glossary.md#g-测试集) |
+    | [特征向量](../appendix/glossary.md#g-特征向量) | 机器学习 | [特征](../appendix/glossary.md#g-特征) |
+    | [Pipeline](../appendix/glossary.md#g-Pipeline) | 机器学习 | [特征向量](../appendix/glossary.md#g-特征向量) |
+    | [独热编码](../appendix/glossary.md#g-独热编码) | 机器学习 | [特征](../appendix/glossary.md#g-特征) |
+    | [标准化](../appendix/glossary.md#g-标准化) | 机器学习 | [特征](../appendix/glossary.md#g-特征) |
+    | [逻辑回归](../appendix/glossary.md#g-逻辑回归) | 机器学习 | [Pipeline](../appendix/glossary.md#g-Pipeline) |
+    | [随机森林](../appendix/glossary.md#g-随机森林) | 机器学习 | [Pipeline](../appendix/glossary.md#g-Pipeline) |
+    | [混淆矩阵](../appendix/glossary.md#g-混淆矩阵) | 机器学习 | [逻辑回归](../appendix/glossary.md#g-逻辑回归) |
+    | [AUC](../appendix/glossary.md#g-AUC) | 机器学习 | [混淆矩阵](../appendix/glossary.md#g-混淆矩阵)、[测试集](../appendix/glossary.md#g-测试集) |
+    | [交叉验证](../appendix/glossary.md#g-交叉验证) | 机器学习 | [训练集](../appendix/glossary.md#g-训练集) |
+    | [K-Means](../appendix/glossary.md#g-K-Means) | 机器学习 | [特征向量](../appendix/glossary.md#g-特征向量)、[标准化](../appendix/glossary.md#g-标准化)、[RFM 模型](../appendix/glossary.md#g-RFM-模型)、[用户分层](../appendix/glossary.md#g-用户分层) |
+    | [轮廓系数](../appendix/glossary.md#g-轮廓系数) | 机器学习 | [K-Means](../appendix/glossary.md#g-K-Means) |
+    | [批量打分](../appendix/glossary.md#g-批量打分) | 机器学习 | [Pipeline](../appendix/glossary.md#g-Pipeline) |
+
+??? note "第 11 章 问题与调优（12 个概念）"
+
+    | 概念 | 类别 | 直接先修 |
+    |---|---|---|
+    | [行式存储](../appendix/glossary.md#g-行式存储) | 分布式存储 | [列式存储](../appendix/glossary.md#g-列式存储) |
+    | [行组](../appendix/glossary.md#g-行组) | 分布式存储 | [Parquet](../appendix/glossary.md#g-Parquet) |
+    | [列裁剪](../appendix/glossary.md#g-列裁剪) | 计算模型 | [Parquet](../appendix/glossary.md#g-Parquet) |
+    | [谓词下推](../appendix/glossary.md#g-谓词下推) | 计算模型 | [行组](../appendix/glossary.md#g-行组) |
+    | [广播连接](../appendix/glossary.md#g-广播连接) | 计算模型 | [Shuffle](../appendix/glossary.md#g-Shuffle) |
+    | [排序合并连接](../appendix/glossary.md#g-排序合并连接) | 计算模型 | [Shuffle](../appendix/glossary.md#g-Shuffle) |
+    | [数据倾斜](../appendix/glossary.md#g-数据倾斜) | 计算模型 | [Shuffle](../appendix/glossary.md#g-Shuffle) |
+    | [加盐](../appendix/glossary.md#g-加盐) | 计算模型 | [数据倾斜](../appendix/glossary.md#g-数据倾斜) |
+    | [自适应查询执行](../appendix/glossary.md#g-自适应查询执行) | 计算模型 | [数据倾斜](../appendix/glossary.md#g-数据倾斜)、[广播连接](../appendix/glossary.md#g-广播连接) |
+    | [内存溢出](../appendix/glossary.md#g-内存溢出) | 计算模型 | [Executor](../appendix/glossary.md#g-Executor)、[并行度](../appendix/glossary.md#g-并行度) |
+    | [并行度](../appendix/glossary.md#g-并行度) | 计算模型 | [Spark UI](../appendix/glossary.md#g-Spark-UI)、[Task](../appendix/glossary.md#g-Task)、[小文件问题](../appendix/glossary.md#g-小文件问题) |
+    | [湖仓一体](../appendix/glossary.md#g-湖仓一体) | 分布式存储 | [Parquet](../appendix/glossary.md#g-Parquet)、[对象存储](../appendix/glossary.md#g-对象存储) |
+
+??? note "第 12 章 可视化与项目（15 个概念）"
+
+    | 概念 | 类别 | 直接先修 |
+    |---|---|---|
+    | [数据可视化](../appendix/glossary.md#g-数据可视化) | 可视化与合规 | [大数据处理流程](../appendix/glossary.md#g-大数据处理流程) |
+    | [误导性图表](../appendix/glossary.md#g-误导性图表) | 可视化与合规 | [数据可视化](../appendix/glossary.md#g-数据可视化) |
+    | [漏斗图](../appendix/glossary.md#g-漏斗图) | 可视化与合规 | [数据可视化](../appendix/glossary.md#g-数据可视化)、[转化率](../appendix/glossary.md#g-转化率) |
+    | [pyecharts](../appendix/glossary.md#g-pyecharts) | 可视化与合规 | [数据可视化](../appendix/glossary.md#g-数据可视化) |
+    | [商业智能](../appendix/glossary.md#g-商业智能) | 可视化与合规 | [数据可视化](../appendix/glossary.md#g-数据可视化) |
+    | [Superset](../appendix/glossary.md#g-Superset) | 可视化与合规 | [商业智能](../appendix/glossary.md#g-商业智能)、[JDBC](../appendix/glossary.md#g-JDBC) |
+    | [数据看板](../appendix/glossary.md#g-数据看板) | 可视化与合规 | [Superset](../appendix/glossary.md#g-Superset) |
+    | [个人信息](../appendix/glossary.md#g-个人信息) | 可视化与合规 | — |
+    | [敏感个人信息](../appendix/glossary.md#g-敏感个人信息) | 可视化与合规 | [个人信息](../appendix/glossary.md#g-个人信息) |
+    | [数据分类分级](../appendix/glossary.md#g-数据分类分级) | 可视化与合规 | [个人信息](../appendix/glossary.md#g-个人信息) |
+    | [数据脱敏](../appendix/glossary.md#g-数据脱敏) | 可视化与合规 | [个人信息](../appendix/glossary.md#g-个人信息) |
+    | [去标识化](../appendix/glossary.md#g-去标识化) | 可视化与合规 | [数据脱敏](../appendix/glossary.md#g-数据脱敏) |
+    | [匿名化](../appendix/glossary.md#g-匿名化) | 可视化与合规 | [去标识化](../appendix/glossary.md#g-去标识化) |
+    | [最小权限原则](../appendix/glossary.md#g-最小权限原则) | 可视化与合规 | [数据分类分级](../appendix/glossary.md#g-数据分类分级)、[HDFS](../appendix/glossary.md#g-HDFS) |
+    | [智能 BI](../appendix/glossary.md#g-智能-BI) | 可视化与合规 | [商业智能](../appendix/glossary.md#g-商业智能)、[Text-to-SQL](../appendix/glossary.md#g-Text-to-SQL) |
 
 <!-- graph:end -->

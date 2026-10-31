@@ -1,14 +1,11 @@
 ---
 title: 附录 B 大数据组件速查
-description: 本书用到的 HDFS、YARN、MapReduce、Hive、Spark、Kafka 等组件的常用命令速查
+description: 本书用到的 HDFS、YARN、MapReduce、Hive、Spark、MySQL、Kafka、Superset 等组件的常用命令和端口速查
 ---
 
 # 附录 B 大数据组件速查
 
 按组件分节，每节列出书中实验真正用到的命令。在随书集群上，这些命令都在 master 容器里运行（`docker compose exec master bash`）。
-
-!!! note "编写中"
-    目前收录了第 2～8 章用到的 Docker、HDFS、YARN、MapReduce、Hive、Spark 和 MySQL 命令；Kafka 部分随第 9 章补充。
 
 ## B.1 Docker 与随书集群
 
@@ -101,6 +98,8 @@ HiveServer2 的网页：<http://localhost:10002>，可以看到最近执行过�
 | `spark-submit /labs/chNN/程序.py` | 以本地模式运行程序 |
 | `spark-submit --master yarn --num-executors 2 /labs/...` | 提交到 YARN 集群（第 6 章） |
 | `spark-submit --jars /labs/jars/mysql-connector-j-8.4.0.jar /labs/...` | 带上 MySQL 的 JDBC 驱动（第 8 章） |
+| `spark-submit --jars $KAFKA_JARS /labs/...` | 带上读 Kafka 的 4 个 jar 包（第 9 章） |
+| `spark-submit --py-files /labs/ch11/ui.py /labs/...` | 带上程序要导入的 Python 文件（第 11 章） |
 
 Spark UI：程序运行期间打开 <http://localhost:4040>。路径写法：`file:///labs/...` 是容器里的本地文件，`/xiaoxiang/...` 是 HDFS 上的文件。
 
@@ -115,3 +114,47 @@ Spark UI：程序运行期间打开 <http://localhost:4040>。路径写法：`fi
 | `SHOW TABLES;`、`DESCRIBE 表名;` | 查看表和表结构 |
 
 连接地址：容器之间用 `jdbc:mysql://mysql:3306/xiaoxiang`，本机程序用 `localhost:3306`。
+
+用只读账号连接：`mysql -ubi_reader -pbi_reader_2026`，只能查询 `dash_orders`、`dash_user_cluster` 两张表（第 12 章）。
+
+## B.8 Kafka（第 9 章）
+
+命令要带上 `-f docker-compose.yml -f docker-compose.spark.yml -f docker-compose.kafka.yml`。Kafka 的命令行工具在 kafka 容器的 `/opt/kafka/bin/` 目录下，每条命令都要加 `--bootstrap-server localhost:9092`。
+
+| 命令 | 作用 |
+|---|---|
+| `kafka-topics.sh --create --topic orders --partitions 3` | 建主题 |
+| `kafka-topics.sh --list`；`kafka-topics.sh --describe --topic orders` | 列出主题；查看分区 |
+| `kafka-console-producer.sh --topic hello` | 在命令行发消息，`Ctrl + C` 退出 |
+| `kafka-console-consumer.sh --topic hello --from-beginning` | 在命令行从头读消息 |
+| `kafka-consumer-groups.sh --describe --group screen` | 查看消费者组的偏移量和积压 |
+
+连接地址：本机程序用 `localhost:9094`，容器里的程序用 `kafka:9092`。流处理的检查点放在 HDFS 的 `/xiaoxiang/checkpoint/` 下，想从头重算时用 `hdfs dfs -rm -r` 删除。
+
+## B.9 Superset（第 12 章）
+
+命令要带上 `-f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.superset.yml`。
+
+| 命令 / 操作 | 作用 |
+|---|---|
+| `docker compose ... up -d --build superset` | 构建镜像并启动 Superset（第一次需要几分钟） |
+| `docker compose ... logs -f superset` | 查看启动日志，出现 `Listening at` 表示就绪 |
+| 浏览器打开 <http://localhost:8089> | 登录，用户名 admin，密码 admin |
+| **+** → **Data** → **Connect database** | 连接数据库，URI 写 `mysql+pymysql://bi_reader:bi_reader_2026@mysql:3306/xiaoxiang?charset=utf8mb4` |
+| **Datasets** → **+ Dataset** | 注册数据集 |
+| **Dashboards** → 打开看板 → **Edit dashboard** | 调整看板中图表的位置和大小 |
+
+## B.10 端口一览
+
+| 端口 | 组件 | 用途 |
+|---|---|---|
+| 9870 | HDFS NameNode | 网页：DataNode、文件和数据块 |
+| 8088 | YARN ResourceManager | 网页：节点和作业 |
+| 19888 | MapReduce 作业历史服务器 | 网页：已结束作业的日志和计数器 |
+| 14000 | HttpFS | 本机用 Python 读写 HDFS |
+| 10000、10002 | HiveServer2 | beeline 连接；网页 |
+| 9083 | Hive Metastore | 元数据服务 |
+| 4040 | Spark UI | 程序运行期间查看 Job、Stage、Task |
+| 3306 | MySQL | 数据库连接 |
+| 9094 | Kafka | 本机程序连接（容器之间用 9092） |
+| 8089 | Superset | 网页：看板（容器内是 8088，为避开 YARN 映射到本机 8089） |
