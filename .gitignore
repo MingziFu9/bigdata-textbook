@@ -12,6 +12,7 @@ labs/data/xiaoxiang_big/
 labs/data/scale/
 labs/data/xiaoxiang_dirty/
 labs/data/xiaoxiang_clean/
+labs/data/models/
 labs/ch07/output/
 labs/jars/*.jar
 labs/ch08/output/

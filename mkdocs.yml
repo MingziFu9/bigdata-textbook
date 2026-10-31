@@ -62,6 +62,7 @@ nav:
     - "窗口函数": sims/window-functions/index.md
     - "Kafka 分区与消费者组": sims/kafka-groups/index.md
     - "时间窗口与迟到数据": sims/late-data/index.md
+    - "分布式 K-Means": sims/dist-kmeans/index.md
   - 学习图谱: learning-graph/index.md
   - 常见问题: faq/index.md
   - "在线模拟卷": mock-exam.md

@@ -211,6 +211,24 @@ description: 本书主要术语的中英文名称、简明定义和例子，按�
 
 | 术语 | 英文 | 定义 | 例子 |
 |---|---|---|---|
+| <span id="g-机器学习"></span>机器学习 | Machine Learning | 让计算机从历史数据中自动找出规律（模型），再用这个规律对新数据做预测或分组的方法 | 用 9 月的订单学出“什么样的用户下周会再买” |
+| <span id="g-特征"></span>特征 | Feature | 描述一个样本的输入变量，模型根据它们做判断 | 用户的购买次数 F、最近一次购买距今天数 R、会员等级 |
+| <span id="g-标签"></span>标签 | Label | 监督学习中要预测的结果，训练数据里已经知道答案 | 实验 10-1 的 label：下周复购记 1，没复购记 0 |
+| <span id="g-训练集"></span>训练集 | Training Set | 用来让模型学习规律的那部分样本 | `randomSplit([0.8, 0.2])` 中的 80%，32564 个用户 |
+| <span id="g-测试集"></span>测试集 | Test Set | 训练时不让模型看到、专门用来检验模型效果的样本 | 实验 10-1 中的 8331 个用户 |
+| <span id="g-过拟合"></span>过拟合 | Overfitting | 模型把训练数据中的偶然细节也背了下来，在训练集上很好、在新数据上变差 | 一棵很深的决策树把训练集每个人都分对，测试集 AUC 反而下降 |
+| <span id="g-特征向量"></span>特征向量 | Feature Vector | 把一个样本的全部特征按固定顺序排成的一列数，MLlib 的模型只接受这种向量列 | `VectorAssembler` 输出的 features 列 |
+| <span id="g-Pipeline"></span>Pipeline | Pipeline | MLlib 中把特征处理和模型按顺序串起来的流水线，整体训练（fit）、整体使用（transform）、整体保存 | 编号 → 独热 → 组装 → 标准化 → 逻辑回归 5 个步骤 |
+| <span id="g-独热编码"></span>独热编码 | One-Hot Encoding | 把有 n 种取值的类别列变成 n 个（MLlib 默认 n−1 个）只取 0 或 1 的列，避免把类别编号当成大小 | 会员等级 4 种，编码成 3 位的向量 |
+| <span id="g-标准化"></span>标准化 | Standardization | 把各个特征缩放到相近的范围（一般是除以标准差，可再减去平均值），让单位不同的特征可以放在一起比较 | `StandardScaler`：金额以元计、次数以次计，缩放后量级一致 |
+| <span id="g-逻辑回归"></span>逻辑回归 | Logistic Regression | 把特征加权求和后转换成 0～1 之间的概率，用来做“是 / 否”二分类的模型 | 输出每个用户复购的概率 |
+| <span id="g-随机森林"></span>随机森林 | Random Forest | 训练很多棵各不相同的决策树，让它们投票决定结果的模型，能给出特征重要性 | 实验 10-1 中 50 棵树，AUC 0.638 |
+| <span id="g-混淆矩阵"></span>混淆矩阵 | Confusion Matrix | 按“真实是什么、预测成什么”交叉统计样本数的表，用来看模型错在哪里 | 1741 个真复购的用户，模型只预测对 203 个 |
+| <span id="g-AUC"></span>AUC | Area Under the ROC Curve | 衡量模型把正例排在负例前面的能力，0.5 相当于随便猜，1 是完全排对 | 实验 10-1 逻辑回归 AUC 0.631 |
+| <span id="g-交叉验证"></span>交叉验证 | Cross-Validation | 把训练集分成 k 份，轮流用其中一份检验、其余训练，取平均成绩来挑选参数 | 3 折 × 3 个 regParam，共训练 9 次 |
+| <span id="g-K-Means"></span>K-Means | K-Means | 把样本分成 k 群的聚类方法：反复把每个点分给最近的中心、再把中心移到本群平均位置，直到中心不再移动 | 在 RFM 特征上把 48644 个用户分成 4 群 |
+| <span id="g-轮廓系数"></span>轮廓系数 | Silhouette Coefficient | 衡量聚类效果的指标，−1～1，越接近 1 说明同群的点越近、不同群的点越远 | `ClusteringEvaluator` 计算，k = 4 时 0.450 |
+| <span id="g-批量打分"></span>批量打分 | Batch Scoring | 加载已经训练好的模型，对一大批新数据一次性算出预测结果 | 实验 10-3 给 48644 个老用户打复购概率，用时约 6 秒 |
 
 ## 第 11 章 常见问题与调优
 

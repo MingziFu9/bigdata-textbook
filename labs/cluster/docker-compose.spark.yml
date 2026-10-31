@@ -1,10 +1,11 @@
-# 第 6～8 章：在随书集群上加一个 Spark 客户端容器
+# 第 6～11 章：在随书集群上加一个 Spark 客户端容器（第一次启动时按 spark/Dockerfile 构建镜像，加装 numpy）
 # 启动：docker compose -f docker-compose.yml -f docker-compose.spark.yml up -d
 # 进入：docker compose -f docker-compose.yml -f docker-compose.spark.yml exec spark bash
 # 默认以本地模式运行（local[*]）；第 6 章实验 6-3 用 --master yarn 提交到集群
 services:
   spark:
-    image: apache/spark:4.1.4-scala2.13-java21-python3-ubuntu
+    image: xiaoxiang/spark:4.1.4
+    build: ./spark
     user: root
     hostname: spark
     depends_on: [master]

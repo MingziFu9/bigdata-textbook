@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分布式 K-Means</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+svg { width:100%; height:auto; display:block; }
+.phase { display:flex; gap:4px; flex-wrap:wrap; font-size:12px; margin:4px 0; }
+.phase span { padding:2px 8px; border-radius:10px; background:#f5f5f5; color:var(--muted); }
+.phase span.cur { background:var(--accent); color:#fff; }
+table.t td.c0 { color:#1e88e5; } table.t td.c1 { color:#e53935; } table.t td.c2 { color:#43a047; } table.t td.c3 { color:#8e24aa; }
+.tables { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+@media (max-width:620px) { .tables { grid-template-columns:1fr 1fr; } }
+.tables table { width:100%; font-size:12px; }
+.tables h3 { font-size:12.5px; margin:0; }
+</style>
+</head>
+<body>
+<h1>分布式 K-Means：数据不动，中心点来回跑</h1>
+<div class="sub">48 个用户分在 3 个节点上（形状表示在哪个节点：● 节点 1，■ 节点 2，▲ 节点 3）。横轴是“最近一次购买距今天数”，纵轴是“购买金额”，都已标准化到 0～10。</div>
+
+<div class="row">
+  <label>分几群 k <select id="k"><option>2</option><option selected>3</option><option>4</option></select></label>
+  <button class="main" id="next">下一步</button>
+  <button id="run">一直跑到收敛</button>
+  <button id="seed">换一组初始中心</button>
+  <button id="reset">重来</button>
+</div>
+<div class="phase" id="phase"></div>
+
+<div class="box"><h2>① 数据点和中心点（✚ 是中心，虚线箭头是这一轮中心移动的方向）</h2><svg id="plot" viewBox="0 0 520 330"></svg></div>
+<div class="box"><h2>② 各节点只交回“每群的人数和坐标之和”，Driver 加起来求新中心</h2><div class="tables" id="tabs"></div></div>
+<div class="msg" id="msg"></div>
+<div class="note">Spark MLlib 的 KMeans 就是这样一轮一轮算的：每轮把 k 个中心广播到各节点，每个节点只在本地给自己的数据找最近的中心并求和，网络上传的只有 k 组“人数和坐标之和”，而不是原始数据。中心几乎不再移动（或到了最大轮数 maxIter）就停。初始中心不同，结果可能不同，所以实际使用时要固定 seed。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const COL = ['#1e88e5', '#e53935', '#43a047', '#8e24aa'];
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+// 三团用户：最近常买的高消费、最近买过的普通、很久没来的
+const PTS = (() => {
+  const r = rng(42), g = () => (r() + r() + r() - 1.5) * 1.3, out = [];
+  const blobs = [[2, 8, 14], [3, 3.5, 18], [7.8, 2.6, 16]];
+  blobs.forEach(([cx, cy, n]) => { for (let i = 0; i < n; i++) out.push([Math.min(9.8, Math.max(0.2, cx + g())), Math.min(9.8, Math.max(0.2, cy + g()))]); });
+  const order = out.map((p, i) => [r(), i]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  return order.map((i, j) => ({ x: out[i][0], y: out[i][1], node: j % 3, c: -1 }));
+})();
+const PH = ['广播中心', '各节点分配并求和', 'Driver 汇总、更新中心'];
+let K, seed = 1, it, ph, C, prevC, part, done;
+function init() {
+  K = +$('k').value; it = 0; ph = 0; done = false; part = null; prevC = null;
+  const r = rng(seed * 97 + K), idx = [];
+  while (idx.length < K) { const i = Math.floor(r() * PTS.length); if (!idx.includes(i)) idx.push(i); }
+  C = idx.map(i => [PTS[i].x, PTS[i].y]);
+  PTS.forEach(p => p.c = -1);
+  render('随机挑了 ' + K + ' 个点当初始中心。按“下一步”开始第 1 轮。');
+}
+const d2 = (p, c) => (p.x - c[0]) ** 2 + (p.y - c[1]) ** 2;
+function step() {
+  if (done) return;
+  let m;
+  if (ph === 0) {
+    it++; m = `第 ${it} 轮 · 广播：Driver 把 ${K} 个中心的坐标发给 3 个节点（每个节点只收到 ${K} 个点，很小）。`;
+  } else if (ph === 1) {
+    part = [0, 1, 2].map(() => Array.from({ length: K }, () => ({ n: 0, sx: 0, sy: 0 })));
+    PTS.forEach(p => {
+      let best = 0; C.forEach((c, j) => { if (d2(p, c) < d2(p, C[best])) best = j; });
+      p.c = best; const s = part[p.node][best]; s.n++; s.sx += p.x; s.sy += p.y;
+    });
+    m = `第 ${it} 轮 · 分配：每个节点给自己的 16 个点找最近的中心并上色，再按群算“人数、x 之和、y 之和”。这一步 3 个节点同时算。`;
+  } else {
+    prevC = C.map(c => c.slice());
+    C = C.map((c, j) => {
+      const n = part.reduce((a, t) => a + t[j].n, 0);
+      return n ? [part.reduce((a, t) => a + t[j].sx, 0) / n, part.reduce((a, t) => a + t[j].sy, 0) / n] : c;
+    });
+    const move = Math.max(...C.map((c, j) => Math.hypot(c[0] - prevC[j][0], c[1] - prevC[j][1])));
+    const cost = PTS.reduce((a, p) => a + d2(p, C[p.c]), 0);
+    m = `第 ${it} 轮 · 汇总：新中心 = 各节点的坐标之和相加 ÷ 人数相加。中心最多移动了 ${move.toFixed(2)}，簇内距离平方和 ${cost.toFixed(1)}。`;
+    if (move < 0.01) { done = true; m += ` <b class="ok">中心不再移动，收敛了，共 ${it} 轮。</b>`; }
+  }
+  ph = (ph + 1) % 3;
+  return m;
+}
+function render(m) {
+  const X = v => 40 + v * 46, Y = v => 300 - v * 28;
+  let s = `<line x1="40" y1="300" x2="505" y2="300" stroke="#90a4ae"/><line x1="40" y1="300" x2="40" y2="15" stroke="#90a4ae"/>
+    <text x="505" y="320" font-size="11" text-anchor="end" fill="#78909c">最近一次购买距今 →（越右越久没来）</text>
+    <text x="46" y="14" font-size="11" fill="#78909c">↑ 购买金额</text>`;
+  PTS.forEach(p => {
+    const f = p.c < 0 ? '#b0bec5' : COL[p.c], x = X(p.x), y = Y(p.y);
+    if (p.node === 0) s += `<circle cx="${x}" cy="${y}" r="5.5" fill="${f}"/>`;
+    else if (p.node === 1) s += `<rect x="${x - 5}" y="${y - 5}" width="10" height="10" fill="${f}"/>`;
+    else s += `<path d="M${x} ${y - 6} L${x + 6} ${y + 5} L${x - 6} ${y + 5}Z" fill="${f}"/>`;
+  });
+  if (prevC && ph !== 2) prevC.forEach((c, j) => {
+    if (Math.hypot(c[0] - C[j][0], c[1] - C[j][1]) > 0.05) s += `<line x1="${X(c[0])}" y1="${Y(c[1])}" x2="${X(C[j][0])}" y2="${Y(C[j][1])}" stroke="${COL[j]}" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#ar)"/>`;
+  });
+  C.forEach((c, j) => { const x = X(c[0]), y = Y(c[1]); s += `<path d="M${x - 9} ${y}H${x + 9}M${x} ${y - 9}V${y + 9}" stroke="#263238" stroke-width="6"/><path d="M${x - 8} ${y}H${x + 8}M${x} ${y - 8}V${y + 8}" stroke="${COL[j]}" stroke-width="3.5"/>`; });
+  $('plot').innerHTML = `<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#546e7a"/></marker></defs>` + s;
+  $('phase').innerHTML = `<span>第 ${it} 轮</span>` + PH.map((t, i) => `<span class="${(ph + 2) % 3 === i && it ? 'cur' : ''}">${t}</span>`).join('');
+  const tab = (title, rows) => `<div><h3>${title}</h3><table class="t"><tr><th>群</th><th>人数</th><th>x 之和</th><th>y 之和</th></tr>${rows.map((r, j) => `<tr><td class="c${j}">${j + 1}</td><td>${r.n}</td><td>${r.sx.toFixed(1)}</td><td>${r.sy.toFixed(1)}</td></tr>`).join('')}</table></div>`;
+  if (part) {
+    const sum = Array.from({ length: K }, (_, j) => ({ n: part.reduce((a, t) => a + t[j].n, 0), sx: part.reduce((a, t) => a + t[j].sx, 0), sy: part.reduce((a, t) => a + t[j].sy, 0) }));
+    $('tabs').innerHTML = part.map((p, i) => tab(['● 节点 1', '■ 节点 2', '▲ 节点 3'][i], p)).join('') + tab('Driver 合计', sum);
+  } else $('tabs').innerHTML = '<div class="note">第 1 轮分配之后显示。</div>';
+  $('msg').innerHTML = m || '';
+}
+$('next').onclick = () => render(step());
+$('run').onclick = () => { let m, n = 0; while (!done && n++ < 300) m = step(); render(m); };
+$('seed').onclick = () => { seed++; init(); };
+$('reset').onclick = init;
+$('k').onchange = init;
+init();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>
