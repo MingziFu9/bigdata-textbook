@@ -65,6 +65,7 @@ nav:
     - "分布式 K-Means": sims/dist-kmeans/index.md
     - "行式与列式存储": sims/row-column/index.md
     - "数据倾斜与加盐": sims/skew-salt/index.md
+    - "图表选择助手": sims/chart-chooser/index.md
   - 学习图谱: learning-graph/index.md
   - 常见问题: faq/index.md
   - "在线模拟卷": mock-exam.md

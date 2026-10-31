@@ -9,3 +9,5 @@ requests==2.32.5      # 第 3 章：通过 HttpFS 用 Python 读写 HDFS
 matplotlib==3.11.2     # 第 8 章：pandas 画图
 PyMySQL==2.2.8         # 第 8 章：pandas 读 MySQL
 SQLAlchemy==2.1.6      # 第 8 章：pandas 读 MySQL
+kafka-python==3.0.12   # 第 9 章：本机向 Kafka 发送和读取消息
+pyecharts==2.1.0       # 第 12 章：交互式图表和销售报告

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>图表选择助手</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.tabs button { border-radius:6px; }
+svg.chart { width:100%; max-width:640px; height:auto; display:block; margin:4px auto; }
+.tip { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px; }
+.tip div { border:1px solid var(--line); border-radius:6px; padding:6px 8px; }
+.tip b { color:var(--accent); }
+@media (max-width:620px) { .tip { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<h1>图表选择助手：先想清楚“要说明什么”，再选图</h1>
+<div class="sub">数据来自小象优选 9 月已完成订单（实验 12-1、12-2 的结果）。先在“选图表”里按目的挑图，再到“找误导”里看看同样的数据怎样被画“歪”。</div>
+
+<div class="row tabs"><button data-t="pick" class="on">选图表</button><button data-t="lie">找误导</button></div>
+
+<div id="pick">
+  <div class="row" id="goals"></div>
+  <div class="row"><span style="font-size:13px">换成：</span><button id="good" class="on">推荐的图</button><button id="badbtn">不合适的图</button></div>
+  <div class="box"><h2 id="ctitle"></h2><div id="chart"></div></div>
+  <div class="tip" id="tip"></div>
+</div>
+
+<div id="lie" style="display:none">
+  <div class="row" id="cases"></div>
+  <div class="row" id="switch"></div>
+  <div class="box"><h2 id="ltitle"></h2><div id="lchart"></div></div>
+  <div class="msg" id="lmsg"></div>
+</div>
+<div class="note">口诀：比较用柱，趋势用线，构成用饼（类别少于 6 个），分布用直方，关系用散点，地区用地图，转化用漏斗。图表是为结论服务的：标题直接写结论，纵轴、单位、数据范围要交代清楚。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const CAT = [['手机数码', 9759.7], ['家用电器', 2200.3], ['服饰鞋包', 1044.1], ['家居日用', 320.8], ['美妆个护', 308.6], ['母婴玩具', 281.4], ['食品生鲜', 201.9], ['图书文具', 46.8]];
+const GMV = [447.1, 501.9, 466.0, 464.5, 482.1, 458.0, 448.5, 486.7, 454.3, 462.6, 478.0, 441.8, 465.3, 477.4, 467.2, 453.4, 463.6, 489.3, 482.8, 488.7, 499.3, 464.6, 493.1, 488.0, 436.5, 462.9, 475.9, 502.6, 489.8, 471.8];
+const ORD = [2878, 3033, 2986, 2994, 2989, 2998, 2908, 2977, 2969, 3045, 2998, 2854, 2996, 3019, 3158, 2990, 2909, 3051, 2967, 3032, 3033, 2935, 2978, 3033, 2824, 3045, 3037, 3037, 2993, 2974];
+const PAY = [['微信支付', 40214], ['支付宝', 34090], ['花呗分期', 8789], ['银行卡', 6272], ['未知', 275]];
+const HIST = [22867, 11188, 8575, 3758, 5408, 2165, 1869, 2767, 2276, 1205, 27562];
+const HLAB = ['0~', '100~', '200~', '300~', '400~', '500~', '600~', '700~', '800~', '900~', '≥1000'];
+const PROV = [['广东', 1297.2], ['河南', 1040.2], ['山东', 1007.5], ['四川', 850.4], ['江苏', 816.1], ['河北', 752.1], ['浙江', 659.7], ['湖南', 645.3], ['安徽', 609.7], ['湖北', 576.0], ['广西', 491.5], ['云南', 489.8], ['江西', 463.1], ['辽宁', 439.1], ['福建', 386.9], ['重庆', 372.3], ['陕西', 362.7], ['贵州', 359.0], ['山西', 325.5], ['甘肃', 295.9], ['黑龙江', 295.2], ['新疆', 262.2], ['上海', 253.7], ['内蒙古', 252.0], ['吉林', 232.0], ['北京', 227.3], ['天津', 150.1], ['海南', 96.5], ['宁夏', 63.7], ['青海', 55.0], ['西藏', 35.7]];
+const FUN = [['浏览商品', 93474], ['加入购物车', 29111], ['提交订单', 7611], ['完成支付', 2592]];
+const COLORS = ['#3f51b5', '#e53935', '#43a047', '#ef6c00', '#8e24aa', '#00897b', '#6d4c41', '#546e7a', '#c0ca33', '#d81b60', '#1e88e5'];
+const W = 640, H = 300, L = 56, R = 16, T = 16, B = 40;
+
+// ---------- 画图的小工具 ----------
+const svg = (body, h = H) => `<svg class="chart" viewBox="0 0 ${W} ${h}">${body}</svg>`;
+const txt = (x, y, s, o = '') => `<text x="${x}" y="${y}" font-size="11" fill="#546e7a" ${o}>${s}</text>`;
+function axes(min, max, ticks = 5, h = H) {
+  let s = `<line x1="${L}" y1="${h - B}" x2="${W - R}" y2="${h - B}" stroke="#90a4ae"/><line x1="${L}" y1="${T}" x2="${L}" y2="${h - B}" stroke="#90a4ae"/>`;
+  for (let i = 0; i <= ticks; i++) {
+    const v = min + (max - min) * i / ticks, y = h - B - (h - B - T) * i / ticks;
+    s += `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="#eceff1"/>` + txt(L - 6, y + 4, +v.toFixed(0), 'text-anchor="end"');
+  }
+  return s;
+}
+function bars(data, min = 0, max = null, opt = {}) {
+  if (max == null) { const m = Math.max(...data.map(d => d[1])) * 1.05, e = 10 ** Math.floor(Math.log10(m)); max = [1, 2, 2.5, 5, 10].map(k => k * e).find(v => v >= m); }
+  const bw = (W - L - R) / data.length, y = v => H - B - (H - B - T) * (v - min) / (max - min);
+  let s = axes(min, max);
+  data.forEach(([k, v], i) => {
+    const x = L + i * bw + bw * 0.15, yy = y(Math.max(v, min));
+    s += `<rect x="${x}" y="${yy}" width="${bw * 0.7}" height="${H - B - yy}" fill="${opt.color || COLORS[0]}" rx="2"/>`;
+    s += txt(x + bw * 0.35, H - B + 15, k, 'text-anchor="middle"');
+    if (opt.label !== false) s += txt(x + bw * 0.35, yy - 4, v, 'text-anchor="middle" fill="#263238"');
+  });
+  return svg(s);
+}
+function pie(data, inner = 0, h = H) {
+  const tot = data.reduce((a, d) => a + d[1], 0), cx = 200, cy = h / 2, r = h / 2 - 20;
+  let a0 = -Math.PI / 2, s = '';
+  data.forEach(([k, v], i) => {
+    const a1 = a0 + 2 * Math.PI * v / tot, big = a1 - a0 > Math.PI ? 1 : 0;
+    const p = (a, rr) => `${cx + rr * Math.cos(a)},${cy + rr * Math.sin(a)}`;
+    s += `<path d="M${p(a0, r)} A${r},${r} 0 ${big} 1 ${p(a1, r)} L${p(a1, inner)} ${inner ? `A${inner},${inner} 0 ${big} 0 ${p(a0, inner)}` : ''} Z" fill="${COLORS[i % COLORS.length]}" stroke="#fff"/>`;
+    a0 = a1;
+  });
+  const n = data.length, step = Math.min(22, (h - 20) / n);
+  data.forEach(([k, v], i) => {
+    const y = 14 + i * step;
+    s += `<rect x="400" y="${y - 9}" width="10" height="10" fill="${COLORS[i % COLORS.length]}"/>` + txt(416, y, `${k}　${(v / tot * 100).toFixed(1)}%`);
+  });
+  return svg(s, h);
+}
+function line(vals, min, max, opt = {}) {
+  const n = vals.length, x = i => L + (W - L - R) * i / (n - 1), y = v => H - B - (H - B - T) * (v - min) / (max - min);
+  let s = axes(min, max);
+  s += `<polyline fill="none" stroke="${opt.color || COLORS[1]}" stroke-width="2" points="${vals.map((v, i) => x(i) + ',' + y(v)).join(' ')}"/>`;
+  vals.forEach((v, i) => { if (opt.labels) s += txt(x(i), H - B + 15, opt.labels[i], 'text-anchor="middle"'); else if (i % 5 === 0 || i === n - 1) s += txt(x(i), H - B + 15, `9/${i + 1}`, 'text-anchor="middle"'); });
+  if (opt.extra) s += `<polyline fill="none" stroke="${COLORS[0]}" stroke-width="2" points="${opt.extra.map((v, i) => x(i) + ',' + y(v)).join(' ')}"/>`;
+  if (opt.avg) { const a = vals.reduce((p, q) => p + q) / n; s += `<line x1="${L}" x2="${W - R}" y1="${y(a)}" y2="${y(a)}" stroke="#78909c" stroke-dasharray="4 3"/>` + txt(W - R - 4, y(a) - 4, '平均 ' + a.toFixed(1), 'text-anchor="end"'); }
+  return svg(s);
+}
+function hbars(data, h = 330) {
+  const max = Math.max(...data.map(d => d[1])) * 1.12, bh = (h - 20) / data.length;
+  let s = '';
+  data.forEach(([k, v], i) => {
+    const w = (W - 120) * v / max, y = 10 + i * bh;
+    s += txt(52, y + bh * 0.62, k, 'text-anchor="end"') + `<rect x="58" y="${y + bh * 0.15}" width="${w}" height="${bh * 0.7}" fill="${COLORS[0]}" rx="2"/>` + txt(62 + w, y + bh * 0.62, v);
+  });
+  return svg(s, h);
+}
+function scatter(xs, ys) {
+  const x0 = 2800, x1 = 3200, y0 = 430, y1 = 510, x = v => L + (W - L - R) * (v - x0) / (x1 - x0), y = v => H - B - (H - B - T) * (v - y0) / (y1 - y0);
+  let s = axes(y0, y1, 4);
+  [2800, 2900, 3000, 3100, 3200].forEach(v => s += txt(x(v), H - B + 15, v, 'text-anchor="middle"'));
+  xs.forEach((v, i) => s += `<circle cx="${x(v)}" cy="${y(ys[i])}" r="4.5" fill="${COLORS[0]}" fill-opacity=".7"/>`);
+  s += txt(W - R, H - 6, '每天订单数（单）→', 'text-anchor="end"') + txt(L + 4, T + 4, '↑ 每天销售额（万元）');
+  return svg(s);
+}
+function funnel(data) {
+  const max = data[0][1], h = 260, sh = (h - 20) / data.length;
+  let s = '';
+  data.forEach(([k, v], i) => {
+    const w1 = 420 * Math.max(v / max, 0.12), w2 = i < data.length - 1 ? 420 * Math.max(data[i + 1][1] / max, 0.12) : w1 * 0.8, y = 10 + i * sh, c = 230;
+    s += `<polygon points="${c - w1 / 2},${y} ${c + w1 / 2},${y} ${c + w2 / 2},${y + sh - 4} ${c - w2 / 2},${y + sh - 4}" fill="${COLORS[i]}" fill-opacity=".85"/>`;
+    s += txt(470, y + sh / 2 + 4, `${k}：${v} 人（${(v / max * 100).toFixed(1)}%）`, 'fill="#263238"');
+  });
+  return svg(s, h);
+}
+
+// ---------- 选图表 ----------
+const GOALS = {
+  '比较': { title: '各品类销售额（万元）——手机数码一个品类就占了近七成',
+    good: () => bars(CAT), bad: () => pie(CAT),
+    use: '比较几个类别的数值大小：<b>柱状图</b>（类别名长或类别多时用横向条形图），按数值从高到低排好。',
+    warn: '换成饼图后，“家居日用”和“美妆个护”（320.8 与 308.6）几乎看不出谁大。人眼比较长度很准，比较角度和面积很差。' },
+  '趋势': { title: '每日销售额（万元）——整个月在 436～503 万元之间波动，没有明显的上升或下降',
+    good: () => line(GMV, 400, 520, { avg: true }), bad: () => pie(GMV.map((v, i) => [`9/${i + 1}`, v]).slice(0, 12)),
+    use: '看数值随时间怎么变：<b>折线图</b>，横轴是时间，从左到右。可以标出最高、最低和平均线。',
+    warn: '把每天的销售额画成饼图（这里只画了前 12 天就已经看不清），时间的先后顺序完全丢了，看不出涨跌。' },
+  '构成': { title: '各支付方式的订单数占比——微信和支付宝合计超过八成',
+    good: () => pie(PAY, 70), bad: () => line(PAY.map(d => d[1]), 0, 45000, { color: COLORS[0], labels: PAY.map(d => d[0]) }),
+    use: '看整体由哪几部分组成、各占多少：<b>饼图或环形图</b>，类别不超过 5～6 个，各部分加起来是 100%。类别多时改用条形图。',
+    warn: '把支付方式连成折线，好像它们之间有先后顺序、有“趋势”，其实这些类别之间没有顺序，折线没有意义。' },
+  '分布': { title: '订单金额的分布（单）——将近一半的订单不到 300 元，1000 元以上的贵价订单也超过三成',
+    good: () => bars(HIST.map((v, i) => [HLAB[i], v]), 0, 30000, { label: false, color: COLORS[2] }), bad: () => pie(HIST.map((v, i) => [HLAB[i], v])),
+    use: '看数值落在哪些区间、集中在哪里：<b>直方图</b>，把数值分成等宽的区间，数一数每个区间有多少个。也可以用箱线图。',
+    warn: '把区间画成饼图，区间之间“从小到大”的顺序丢了，看不出数据集中在哪一头。' },
+  '关系': { title: '每天订单数与销售额的关系——订单越多，销售额大体越高',
+    good: () => scatter(ORD, GMV), bad: () => line(GMV, 400, 520, { extra: ORD.map(v => v / 6.4) }),
+    use: '看两个数值变量有没有关系：<b>散点图</b>，每个点是一个对象（这里是一天），横轴、纵轴各是一个变量。',
+    warn: '红线是销售额（万元），蓝线是订单数缩小 6.4 倍后硬放在同一个纵轴上。两条线的单位不同，缩放的倍数可以随便选，选得巧就能让两条线“看起来一样”或“看起来相反”，很容易误导。要看关系就用散点图。' },
+  '地区': { title: '销售额前 10 的省份（万元）——广东第一，河南、山东超过 1000 万元',
+    good: () => hbars(PROV.slice(0, 10)), bad: () => pie(PROV, 0, 330),
+    use: '看地区之间的差异：有地图就用<b>地图</b>（实验 12-1），一眼看出哪片地区深；要看精确排名，用<b>横向条形图</b>取前 10 名。',
+    warn: '31 个省份做成饼图，颜色都不够用了，小的扇形挤成一团，根本读不出来。' },
+  '转化': { title: '9 月 30 日用户的购买转化——从浏览到支付只剩 2.8%',
+    good: () => funnel(FUN), bad: () => pie(FUN),
+    use: '看一个流程每一步还剩多少人：<b>漏斗图</b>，从上到下按步骤排列，标出每一步占第一步的比例。',
+    warn: '画成饼图，好像这 4 步是 4 群不同的人，各占一份；其实后一步的人都包含在前一步里，加起来没有意义。' },
+};
+let goal = '比较', showBad = false;
+$('goals').innerHTML = '<span style="font-size:13px">我想说明：</span>' + Object.keys(GOALS).map(k => `<button data-g="${k}">${k}</button>`).join('');
+function renderPick() {
+  const g = GOALS[goal];
+  document.querySelectorAll('[data-g]').forEach(b => b.classList.toggle('on', b.dataset.g === goal));
+  $('good').classList.toggle('on', !showBad); $('badbtn').classList.toggle('on', showBad);
+  $('ctitle').textContent = (showBad ? '【不合适】' : '') + g.title;
+  $('chart').innerHTML = showBad ? g.bad() : g.good();
+  $('tip').innerHTML = `<div><b>什么时候用</b><br>${g.use}</div><div><b>${showBad ? '为什么不合适' : '换成别的图会怎样'}</b><br>${showBad ? g.warn : '点上面的“不合适的图”看看。'}</div>`;
+}
+document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { goal = b.dataset.g; showBad = false; renderPick(); });
+$('good').onclick = () => { showBad = false; renderPick(); };
+$('badbtn').onclick = () => { showBad = true; renderPick(); };
+
+// ---------- 找误导 ----------
+const CASES = [
+  { name: '纵轴不从 0 开始', opts: ['纵轴从 0 开始', '纵轴从 430 开始'],
+    draw: o => bars([['9 月 25 日', 436.5], ['9 月 28 日', 502.6]], o ? 430 : 0, 520),
+    title: '两天的销售额（万元）',
+    msg: o => o ? '<span class="bad">看起来 28 日的柱子是 25 日的 10 倍多！</span>其实 502.6 只比 436.5 多 15%。柱状图靠<b>柱子的长度</b>表达数值，纵轴不从 0 开始，长度就不再和数值成比例。' : '纵轴从 0 开始，两根柱子的长度之比就是数值之比：28 日比 25 日多 15%，差别不大。<b>柱状图的纵轴必须从 0 开始。</b>' },
+  { name: '折线图的纵轴', opts: ['纵轴从 0 开始', '纵轴从 400 开始'],
+    draw: o => line(GMV, o ? 400 : 0, o ? 520 : 600, { avg: true }),
+    title: '每日销售额（万元）',
+    msg: o => o ? '折线图靠<b>线的起伏</b>表达变化，纵轴可以不从 0 开始，这样日常的波动看得更清楚（实验 12-1 的折线图纵轴就从 300 开始）。但要在副标题或纵轴上<b>写明起点</b>，看图的人才不会以为涨跌很大。' : '纵轴从 0 开始，整条线几乎是平的，看不出每天的波动。折线图和柱状图不一样，可以按需要调整纵轴的起点。' },
+  { name: '气泡按半径画', opts: ['按面积画', '按半径画'],
+    draw: o => { const k = o ? 1297.2 / 816.1 : Math.sqrt(1297.2 / 816.1), r1 = 60 * k, r2 = 60;
+      return svg(`<circle cx="200" cy="150" r="${r1}" fill="${COLORS[0]}" fill-opacity=".8"/><circle cx="460" cy="150" r="${r2}" fill="${COLORS[1]}" fill-opacity=".8"/>` + txt(200, 150 + r1 + 18, '广东 1297.2', 'text-anchor="middle" font-size="13"') + txt(460, 150 + r2 + 18, '江苏 816.1', 'text-anchor="middle" font-size="13"')); },
+    title: '两省销售额（万元）',
+    msg: o => o ? '<span class="bad">半径按 1.6 倍画，面积就成了 2.5 倍</span>，广东看起来比江苏大得多。人眼感受的是圆的<b>面积</b>，所以气泡、圆形的大小要让面积和数值成比例。' : '面积是 1.6 倍（半径是 1.26 倍），看上去的大小和真实的差距一致。' },
+  { name: '饼图类别太多', opts: ['条形图前 10', '31 个省的饼图'],
+    draw: o => o ? pie(PROV, 0, 330) : hbars(PROV.slice(0, 10)),
+    title: '各省销售额',
+    msg: o => o ? '<span class="bad">31 个扇形，颜色只能循环使用</span>，好几个省是同一种颜色，后面的小省份挤成细线。饼图的类别最好不超过 5～6 个，多出来的合并成“其他”。' : '前 10 名用横向条形图，从高到低排列，省名写得下，数值一目了然。' },
+];
+let ci = 0, co = 1;
+$('cases').innerHTML = CASES.map((c, i) => `<button data-c="${i}">${c.name}</button>`).join('');
+function renderLie() {
+  const c = CASES[ci];
+  document.querySelectorAll('[data-c]').forEach(b => b.classList.toggle('on', +b.dataset.c === ci));
+  $('switch').innerHTML = c.opts.map((t, i) => `<button data-o="${i}" class="${i === co ? 'on' : ''}">${t}</button>`).join('');
+  document.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { co = +b.dataset.o; renderLie(); });
+  $('ltitle').textContent = c.title; $('lchart').innerHTML = c.draw(co); $('lmsg').innerHTML = c.msg(co);
+}
+document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { ci = +b.dataset.c; co = 1; renderLie(); });
+document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('on', x === b));
+  $('pick').style.display = b.dataset.t === 'pick' ? '' : 'none'; $('lie').style.display = b.dataset.t === 'lie' ? '' : 'none';
+});
+renderPick(); renderLie();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

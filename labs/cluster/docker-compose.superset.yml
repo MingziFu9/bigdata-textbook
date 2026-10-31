@@ -1,0 +1,28 @@
+# 第 12 章：Superset 数据看板（需要先启动 MySQL：docker-compose.mysql.yml）
+# 启动：docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.superset.yml up -d --build superset
+# 第一次启动要初始化数据库、创建管理员，约 1～2 分钟；浏览器打开 http://localhost:8089 ，用户名 admin，密码 admin
+services:
+  superset:
+    image: xiaoxiang/superset:6.1.0
+    build: ./superset
+    hostname: superset
+    depends_on: [mysql]
+    environment:
+      TZ: Asia/Shanghai
+      SUPERSET_CONFIG_PATH: /app/superset_config.py
+    # 先初始化（已经初始化过的话这几步会很快跳过），再启动网页服务
+    command:
+      - bash
+      - -c
+      - >-
+        superset db upgrade &&
+        (superset fab create-admin --username admin --firstname Xiaoxiang --lastname Admin --email admin@example.com --password admin || true) &&
+        superset init &&
+        /usr/bin/run-server.sh
+    ports:
+      - "8089:8088"     # 本机 8088 已被 YARN 网页占用，Superset 用 8089
+    volumes:
+      - ./superset/superset_config.py:/app/superset_config.py:ro
+      - superset-home:/app/superset_home     # Superset 自己的数据（看板、图表的定义）
+volumes:
+  superset-home:
