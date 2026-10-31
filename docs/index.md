@@ -40,11 +40,11 @@
 | [第 8 章](chapters/08-spark-sql/index.md) | 0.8 万 | 3 | 23（18） | 14 | 10 | 1 |
 | [第 9 章](chapters/09-streaming/index.md) | 1.0 万 | 3 | 23（18） | 18 | 10 | 2 |
 | [第 10 章](chapters/10-mllib/index.md) | 0.8 万 | 3 | 23（18） | 18 | 10 | 1 |
-| [第 11 章](chapters/11-tuning/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
+| [第 11 章](chapters/11-tuning/index.md) | 0.8 万 | 3 | 23（18） | 12 | 10 | 2 |
 | [第 12 章](chapters/12-visualization-project/index.md) | 0.0 万 | 3 | 0（0） | 0 | 0 | 0 |
-| **合计** | **8.9 万** | **36** | **230（180）** | **171** | **98** | **12** |
+| **合计** | **9.7 万** | **36** | **253（198）** | **183** | **108** | **14** |
 
-正文字数只统计汉字，不含代码和课后练习；单选、多选和判断题可以在网页上直接作答。配套学习资源：[交互动画](sims/index.md) 12 个 · [学习图谱](learning-graph/index.md) 135 个概念 · [常见问题](faq/index.md) 19 问 · [术语表](appendix/glossary.md) 171 条。
+正文字数只统计汉字，不含代码和课后练习；单选、多选和判断题可以在网页上直接作答。配套学习资源：[交互动画](sims/index.md) 14 个 · [学习图谱](learning-graph/index.md) 135 个概念 · [常见问题](faq/index.md) 19 问 · [术语表](appendix/glossary.md) 183 条。
 
 <!-- stats:end -->
 

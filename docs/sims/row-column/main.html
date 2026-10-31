@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>行式与列式存储</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.disk { display:flex; flex-wrap:wrap; gap:2px; margin-top:4px; }
+.c { font-size:11px; padding:3px 4px; border:1px solid var(--line); border-radius:3px; min-width:46px; text-align:center; background:#fafafa; color:#90a4ae; transition:all .2s; }
+.c.read { background:#e8eaf6; color:var(--ink); border-color:var(--accent); }
+.c.skip { background:#fff; color:#cfd8dc; border-style:dashed; }
+.c.sep { min-width:0; border:none; background:none; padding:0 3px; color:var(--muted); }
+.grp { font-size:11.5px; color:var(--muted); margin:6px 0 2px; }
+.kpi { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.kpi div { border:1px solid var(--line); border-radius:6px; padding:6px; text-align:center; font-size:12px; color:var(--muted); }
+.kpi b { display:block; font-size:18px; color:var(--ink); }
+select { max-width:100%; }
+</style>
+</head>
+<body>
+<h1>行式与列式存储：同一张表，在磁盘上怎么排</h1>
+<div class="sub">8 笔订单、5 列。CSV 是行式存储：一行接一行写；Parquet 是列式存储：先把行分成“行组”，每个行组里一列接一列写，还记下每列的最小值和最大值。</div>
+
+<div class="row">
+  <label>查询 <select id="q">
+    <option value="0">SELECT SUM(amount) FROM orders</option>
+    <option value="1" selected>SELECT province, SUM(amount) WHERE status = '已完成' GROUP BY province</option>
+    <option value="2">SELECT * WHERE amount &gt; 1000</option>
+    <option value="3">SELECT * WHERE order_id = 'o3'（只查一行）</option>
+  </select></label>
+</div>
+<div class="row">
+  <span style="font-size:13px">存储方式：</span>
+  <button data-m="row">行式（CSV）</button><button data-m="col" class="on">列式（Parquet）</button>
+  <label style="font-size:13px"><input type="checkbox" id="stats" checked> 用最小值 / 最大值跳过行组</label>
+</div>
+
+<div class="box"><h2 id="title"></h2><div id="disk"></div></div>
+<div class="box kpi" id="kpi"></div>
+<div class="msg" id="msg"></div>
+<div class="note">蓝色格子是这个查询必须从磁盘读出来的数据，虚线格子是靠最小值 / 最大值整组跳过的。列式存储还有一个好处：同一列的值类型相同、经常重复（比如 status 几乎都是“已完成”），压缩效果好得多。实验 11-1 中，300 万行订单的 CSV 是 239.8 MB，转成 Parquet 只有 51.8 MB，按省统计销售额只需读其中 3 列约 6.7 MB。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const COLS = ['order_id', 'province', 'amount', 'pay_type', 'status'];
+const ROWS = [
+  ['o1', '广东', 59, '微信', '已完成'], ['o2', '河南', 128, '支付宝', '已完成'], ['o3', '广东', 36, '微信', '已取消'], ['o4', '山东', 89, '微信', '已完成'],
+  ['o5', '广东', 2399, '花呗', '已完成'], ['o6', '山东', 1599, '银行卡', '已完成'], ['o7', '河南', 3499, '支付宝', '已完成'], ['o8', '广东', 1299, '微信', '已退款'],
+];
+// 每个查询：要用到的列、过滤条件（用于行组跳过）
+const Q = [
+  { cols: ['amount'], skip: null },
+  { cols: ['province', 'amount', 'status'], skip: null },
+  { cols: COLS, skip: g => Math.max(...g.map(r => r[2])) <= 1000, why: 'amount 的最大值不超过 1000' },
+  { cols: COLS, skip: g => !g.some(r => r[0] === 'o3'), why: 'order_id 的范围不包含 o3', point: true },
+];
+let mode = 'col';
+function render() {
+  const q = Q[+$('q').value], useStats = $('stats').checked;
+  let html = '', read = 0, skipped = 0;
+  const cell = (v, cls) => `<span class="c ${cls}">${v}</span>`;
+  if (mode === 'row') {
+    $('title').textContent = '磁盘上的顺序：一行接一行（每行的 5 个值挨在一起）';
+    html = '<div class="disk">';
+    ROWS.forEach((r, i) => {
+      // 行式：任何查询都要把整行读出来，才能找到需要的列；只查一行时如果有索引可以直接定位（这里假设没有索引）
+      r.forEach(v => { html += cell(v, 'read'); read++; });
+      if (i < ROWS.length - 1) html += '<span class="c sep">↵</span>';
+    });
+    html += '</div>';
+  } else {
+    $('title').textContent = '磁盘上的顺序：分成 2 个行组，每组内一列接一列';
+    [ROWS.slice(0, 4), ROWS.slice(4)].forEach((g, gi) => {
+      const can = useStats && q.skip && q.skip(g);
+      const amt = g.map(r => r[2]), ids = g.map(r => r[0]);
+      html += `<div class="grp">行组 ${gi + 1}（统计信息：amount ${Math.min(...amt)}～${Math.max(...amt)}，order_id ${ids[0]}～${ids[ids.length - 1]}）${can ? ' → <b class="bad">跳过整组</b>（' + q.why + '）' : ''}</div><div class="disk">`;
+      COLS.forEach((c, ci) => {
+        const need = q.cols.includes(c) && !can;
+        html += `<span class="c sep">${c}:</span>`;
+        g.forEach(r => { html += cell(r[ci], need ? 'read' : can && q.cols.includes(c) ? 'skip' : ''); if (need) read++; else if (can && q.cols.includes(c)) skipped++; });
+      });
+      html += '</div>';
+    });
+  }
+  $('disk').innerHTML = html;
+  const all = ROWS.length * COLS.length;
+  $('kpi').innerHTML = `<div>表中的格子<b>${all}</b></div><div>要读的格子<b>${read}</b></div><div>只读了<b>${Math.round(read / all * 100)}%</b></div>`;
+  let m;
+  if (mode === 'row') m = q.point ? '只查一行时，行式存储把这一行的值放在一起，配合索引（数据库常用）可以一次读出整行，这是行式的长处；但 CSV 没有索引，只能从头扫到尾。' : '行式存储中，一行的各列挨在一起，即使只要 amount 一列，也得把每行全部读出来再挑。分析类查询通常只用到少数几列，行式存储读了大量用不着的数据。';
+  else if (q.point) m = '列式存储查一行，要到 5 个列里分别取出这一行的值，比行式麻烦；好在统计信息让它跳过了不包含 o3 的行组。所以列式存储适合“少数列、很多行”的分析，不适合频繁地按主键查单行。';
+  else m = `列式存储只读查询用到的 ${q.cols.length} 列` + (q.skip ? (useStats ? '，再用每个行组的最小值 / 最大值跳过不可能满足条件的行组（谓词下推）。' : '。勾选“用最小值 / 最大值跳过行组”看看还能少读多少。') : '，其余列在磁盘上碰都不用碰（列裁剪）。');
+  $('msg').innerHTML = m;
+}
+document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { mode = b.dataset.m; document.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x === b)); render(); });
+$('q').onchange = render; $('stats').onchange = render;
+render();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

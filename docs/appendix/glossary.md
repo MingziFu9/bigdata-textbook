@@ -234,6 +234,18 @@ description: 本书主要术语的中英文名称、简明定义和例子，按�
 
 | 术语 | 英文 | 定义 | 例子 |
 |---|---|---|---|
+| <span id="g-行式存储"></span>行式存储 | Row-oriented Storage | 把一行的各列数据连续存放，适合按行写入和按主键查整行，分析时即使只要一列也得读出整行 | CSV、MySQL 的默认存储方式 |
+| <span id="g-行组"></span>行组 | Row Group | Parquet 文件中按行切分的数据块，块内按列存放，并记录每列的最小值、最大值等统计信息 | 实验 11-1 中 300 万行写成 4 个文件，每个文件按行组存放 |
+| <span id="g-列裁剪"></span>列裁剪 | Column Pruning | 查询只读取用到的列，其余列不从磁盘读出，列式存储才能做到 | 按省统计销售额只读 province、status、amount 3 列 |
+| <span id="g-谓词下推"></span>谓词下推 | Predicate Pushdown | 把过滤条件交给数据源在读取时执行，借助统计信息跳过不可能满足条件的数据 | 执行计划中的 `PushedFilters: [EqualTo(status,已完成)]` |
+| <span id="g-广播连接"></span>广播连接 | Broadcast Hash Join | 把小表复制到每个执行器，大表在本地直接与它关联，大表不需要 Shuffle | 2000 行的商品表关联 300 万行订单，0.58 秒 |
+| <span id="g-排序合并连接"></span>排序合并连接 | Sort Merge Join | 两张表都按关联键 Shuffle 并排序，再把键相同的行合并，适合两张大表关联 | 关闭广播后订单关联商品，Shuffle 写出 14.0 MB，1.31 秒 |
+| <span id="g-数据倾斜"></span>数据倾斜 | Data Skew | 某些键的数据特别多，Shuffle 后集中到少数任务，使这几个任务特别慢、拖慢整个阶段 | 秒杀日 s001 占 57% 的订单，一个任务处理 170 万行 |
+| <span id="g-加盐"></span>加盐 | Salting | 给热点键加上随机后缀（盐），把它的数据拆到多个任务；关联时另一张表的对应行复制相同的份数 | 盐取 0～19，最大的任务从 170 万行降到 17.7 万行 |
+| <span id="g-自适应查询执行"></span>自适应查询执行 | Adaptive Query Execution (AQE) | Spark 在运行中根据每个阶段的实际数据量调整后续执行计划，如合并小分区、拆分倾斜分区、改用广播连接 | Spark 3.2 起默认打开，实验 11-2 中把 200 个任务合并成 3 个 |
+| <span id="g-内存溢出"></span>内存溢出 | Out of Memory (OOM) | 程序需要的内存超过了分配给它的上限而报错退出 | 把 300 万行 `collect()` 到只有 512 MB 的 Driver，报 `OutOfMemoryError: Java heap space` |
+| <span id="g-并行度"></span>并行度 | Parallelism | 一个阶段同时被拆成多少个任务，决定能用上多少个 CPU 核、每个任务处理多少数据 | `spark.sql.shuffle.partitions` 默认 200 |
+| <span id="g-湖仓一体"></span>湖仓一体 | Lakehouse | 在数据湖的开放文件格式上加上事务、版本等表管理能力，让一份数据同时支持报表分析和机器学习 | Iceberg、Paimon、Delta Lake 等表格式 |
 
 ## 第 12 章 数据可视化、数据合规与综合项目
 
