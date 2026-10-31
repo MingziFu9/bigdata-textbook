@@ -1,0 +1,49 @@
+# 第 5 章：在随书集群上加 Hive（元数据服务 + HiveServer2）
+# 启动：docker compose -f docker-compose.yml -f docker-compose.hive.yml up -d
+# Hive 的表数据存在集群的 HDFS 上（/user/hive/warehouse），表结构存在 metastore 容器的 Derby 数据库里
+x-hive: &hive
+  image: apache/hive:4.2.1
+  user: root                       # 和 Hadoop 容器一样用 root，省去目录权限的麻烦
+  depends_on: [master]
+  volumes:
+    - ./hive-conf:/hive_custom_conf:ro
+    - ../:/labs
+services:
+  metastore:
+    <<: *hive
+    hostname: metastore
+    environment:
+      TZ: Asia/Shanghai
+      SERVICE_NAME: metastore
+      DEFAULT_FS: hdfs://master:8020
+      HIVE_WAREHOUSE_PATH: /user/hive/warehouse
+      HIVE_CUSTOM_CONF_DIR: /hive_custom_conf
+      # 元数据库（Derby）放在数据卷里，删掉容器也不会丢表结构
+      SERVICE_OPTS: -Xmx512m -Djavax.jdo.option.ConnectionURL=jdbc:derby:;databaseName=/opt/hive/data/metastore_db;create=true
+    volumes:
+      - ./hive-conf:/hive_custom_conf:ro
+      - hive-meta:/opt/hive/data
+    ports:
+      - "9083:9083"
+  hiveserver2:
+    <<: *hive
+    hostname: hiveserver2
+    depends_on: [metastore]
+    environment:
+      TZ: Asia/Shanghai
+      SERVICE_NAME: hiveserver2
+      IS_RESUME: "true"                # 元数据库由 metastore 容器初始化，这里跳过
+      DEFAULT_FS: hdfs://master:8020
+      HIVE_WAREHOUSE_PATH: /user/hive/warehouse
+      HIVE_CUSTOM_CONF_DIR: /hive_custom_conf
+      SERVICE_OPTS: -Xmx1g -Dhive.metastore.uris=thrift://metastore:9083 -Dhive.query.results.cache.directory=/tmp/hive/_resultscache_
+    volumes:
+      - ./hive-conf:/hive_custom_conf:ro
+      - ../:/labs
+      - hive-lib:/opt/hive/lib         # 把 Hive 的程序库放进数据卷，第 8 章 Spark 读 Hive 表时要用
+    ports:
+      - "10000:10000"   # HiveServer2：beeline、Python 从这里连
+      - "10002:10002"   # HiveServer2 网页
+volumes:
+  hive-meta:
+  hive-lib:

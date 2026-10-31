@@ -10,3 +10,6 @@ labs/data/xiaoxiang/
 .venv/
 labs/data/xiaoxiang_big/
 labs/data/scale/
+labs/data/xiaoxiang_dirty/
+labs/data/xiaoxiang_clean/
+labs/ch07/output/

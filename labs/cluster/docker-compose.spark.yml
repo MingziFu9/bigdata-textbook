@@ -1,0 +1,35 @@
+# 第 6～8 章：在随书集群上加一个 Spark 客户端容器
+# 启动：docker compose -f docker-compose.yml -f docker-compose.spark.yml up -d
+# 进入：docker compose -f docker-compose.yml -f docker-compose.spark.yml exec spark bash
+# 默认以本地模式运行（local[*]）；第 6 章实验 6-3 用 --master yarn 提交到集群
+services:
+  spark:
+    image: apache/spark:4.1.4-scala2.13-java21-python3-ubuntu
+    user: root
+    hostname: spark
+    depends_on: [master]
+    command: ["sleep", "infinity"]      # 容器只是一个“带 Spark 的命令行”，常驻等你进去
+    working_dir: /labs
+    environment:
+      TZ: Asia/Shanghai
+      HADOOP_CONF_DIR: /opt/hadoop-conf
+      SPARK_CONF_DIR: /opt/spark-conf
+      PATH: /opt/spark/bin:/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    ports:
+      - "4040:4040"     # Spark UI（程序运行时才有）
+    volumes:
+      - ./conf:/opt/hadoop-conf:ro
+      - ./spark-conf:/opt/spark-conf:ro
+      - ../:/labs
+      - spark-jdk:/opt/java/openjdk     # 第一次启动时把 Spark 镜像里的 Java 21 复制到数据卷
+      - hive-lib:/opt/hive-lib:ro       # Hive 的程序库（第 8 章读写 Hive 表用，要先启动过 Hive）
+  # 工作节点挂上同一个数据卷，YARN 上运行 Spark 任务时用它
+  worker1:
+    volumes:
+      - spark-jdk:/opt/spark-jdk:ro
+  worker2:
+    volumes:
+      - spark-jdk:/opt/spark-jdk:ro
+volumes:
+  spark-jdk:
+  hive-lib:

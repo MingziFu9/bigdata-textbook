@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数据清洗流水线</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:6px; }
+.steps label { border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:13px; cursor:pointer; display:block; line-height:1.45; }
+.steps label small { display:block; color:var(--muted); font-size:11.5px; }
+.steps input { margin:0 4px 0 0; vertical-align:-2px; accent-color:var(--accent); }
+.tw { overflow-x:auto; }
+table.d { border-collapse:collapse; font-size:12px; width:100%; min-width:640px; }
+table.d th, table.d td { border:1px solid var(--line); padding:2px 5px; white-space:nowrap; text-align:left; font-variant-numeric:tabular-nums; }
+table.d th { background:#f5f7fa; font-weight:600; }
+td.dirty { background:#fff3e0; color:#bf360c; }
+td.fixed { background:#e8f5e9; color:#1b5e20; }
+td.lost { background:#ffebee; color:var(--neg); font-weight:600; }
+tr.gone td { text-decoration:line-through; color:#b0bec5; background:#fafafa; }
+tr.gone td.why { text-decoration:none; color:var(--neg); }
+td.why { font-size:11.5px; color:var(--muted); white-space:normal; min-width:9em; }
+.null { color:#b0bec5; font-style:italic; }
+.stat { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:6px; }
+.stat div { border:1px solid var(--line); border-radius:6px; padding:4px 7px; font-size:11.5px; color:var(--muted); }
+.stat div b { display:block; font-size:17px; color:var(--ink); font-variant-numeric:tabular-nums; }
+.stat div b.z { color:var(--pos); }
+.legend span { display:inline-block; padding:0 6px; border-radius:3px; margin-right:6px; font-size:11.5px; }
+</style>
+</head>
+<body>
+<h1>数据清洗流水线：一份脏订单一步步变干净</h1>
+<div class="sub">勾选清洗步骤（按 ①→⑤ 的顺序执行），看下面 14 行样例怎样变化，以及整份 102000 行的脏订单还剩多少问题。故意少勾一步、或者只勾后面的步骤，看看会出什么事。</div>
+
+<div class="steps" id="steps">
+  <label><input type="checkbox" data-s="0">① 去重<small>dropDuplicates()，最后再按 order_id 去一次</small></label>
+  <label><input type="checkbox" data-s="1">② 统一格式<small>trim、lower，省份去掉“省/市/自治区”，金额去掉 ¥</small></label>
+  <label><input type="checkbox" data-s="2">③ 类型转换与日期解析<small>try_cast 金额和数量，4 种时间写法 → 标准时间</small></label>
+  <label><input type="checkbox" data-s="3">④ 补缺失值<small>省份按用户表补，金额 = 单价 × 数量，支付方式填“未知”</small></label>
+  <label><input type="checkbox" data-s="4">⑤ 删异常值<small>数量、金额要大于 0，时间要在 2026 年 9 月</small></label>
+</div>
+<div class="row"><button class="main" id="all">全部勾选</button><button id="none">全部清除</button></div>
+
+<div class="box"><h2>① 整份数据（102000 行）还剩多少问题</h2><div class="stat" id="stat"></div></div>
+<div class="msg" id="msg"></div>
+<div class="box"><h2>② 14 行样例</h2>
+<div class="legend"><span style="background:#fff3e0;color:#bf360c">还有问题</span><span style="background:#e8f5e9;color:#1b5e20">已清洗</span><span style="background:#ffebee;color:#e53935">清洗出错</span><span style="color:#b0bec5;text-decoration:line-through">已删除的行</span></div>
+<div class="tw"><table class="d" id="tb"></table></div></div>
+<div class="note">样例是 labs/data/xiaoxiang_dirty/orders_dirty.csv 中的真实行；上方的统计由编者对整份脏数据逐一计算 32 种勾选组合得到，全部勾选时与实验 7-1 的结果一致（99700 行）。“省份写法”“支付方式写法”都把空值算作一种。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const C = {"00000":{"rows":102000,"dup":2000,"na_amount":405,"na_province":607,"na_pay":307,"prov":63,"pay":9,"time_bad":3056,"upper":514,"abn":310},"00001":{"rows":102000,"dup":2000,"na_amount":405,"na_province":607,"na_pay":307,"prov":63,"pay":9,"time_bad":3056,"upper":514,"abn":310},"00010":{"rows":102000,"dup":2000,"na_amount":0,"na_province":0,"na_pay":0,"prov":62,"pay":9,"time_bad":3056,"upper":514,"abn":310},"00011":{"rows":102000,"dup":2000,"na_amount":0,"na_province":0,"na_pay":0,"prov":62,"pay":9,"time_bad":3056,"upper":514,"abn":310},"00100":{"rows":102000,"dup":2000,"na_amount":1220,"na_province":607,"na_pay":307,"prov":63,"pay":9,"time_bad":0,"upper":514,"abn":310},"00101":{"rows":100470,"dup":1970,"na_amount":0,"na_province":607,"na_pay":307,"prov":63,"pay":9,"time_bad":0,"upper":514,"abn":0},"00110":{"rows":102000,"dup":2000,"na_amount":0,"na_province":0,"na_pay":0,"prov":62,"pay":9,"time_bad":0,"upper":514,"abn":310},"00111":{"rows":101690,"dup":1990,"na_amount":0,"na_province":0,"na_pay":0,"prov":62,"pay":9,"time_bad":0,"upper":514,"abn":0},"01000":{"rows":102000,"dup":2000,"na_amount":405,"na_province":607,"na_pay":307,"prov":32,"pay":5,"time_bad":3056,"upper":0,"abn":310},"01001":{"rows":102000,"dup":2000,"na_amount":405,"na_province":607,"na_pay":307,"prov":32,"pay":5,"time_bad":3056,"upper":0,"abn":310},"01010":{"rows":102000,"dup":2000,"na_amount":0,"na_province":0,"na_pay":0,"prov":31,"pay":5,"time_bad":3056,"upper":0,"abn":310},"01011":{"rows":102000,"dup":2000,"na_amount":0,"na_province":0,"na_pay":0,"prov":31,"pay":5,"time_bad":3056,"upper":0,"abn":310},"01100":{"rows":102000,"dup":2000,"na_amount":405,"na_province":607,"na_pay":307,"prov":32,"pay":5,"time_bad":0,"upper":0,"abn":310},"01101":{"rows":101285,"dup":1985,"na_amount":0,"na_province":607,"na_pay":307,"prov":32,"pay":5,"time_bad":0,"upper":0,"abn":0},"01110":{"rows":102000,"dup":2000,"na_amount":0,"na_province":0,"na_pay":0,"prov":31,"pay":5,"time_bad":0,"upper":0,"abn":310},"01111":{"rows":101690,"dup":1990,"na_amount":0,"na_province":0,"na_pay":0,"prov":31,"pay":5,"time_bad":0,"upper":0,"abn":0},"10000":{"rows":100000,"dup":0,"na_amount":400,"na_province":600,"na_pay":300,"prov":63,"pay":9,"time_bad":3000,"upper":500,"abn":300},"10001":{"rows":100000,"dup":0,"na_amount":400,"na_province":600,"na_pay":300,"prov":63,"pay":9,"time_bad":3000,"upper":500,"abn":300},"10010":{"rows":100000,"dup":0,"na_amount":0,"na_province":0,"na_pay":0,"prov":62,"pay":9,"time_bad":3000,"upper":500,"abn":300},"10011":{"rows":100000,"dup":0,"na_amount":0,"na_province":0,"na_pay":0,"prov":62,"pay":9,"time_bad":3000,"upper":500,"abn":300},"10100":{"rows":100000,"dup":0,"na_amount":1200,"na_province":600,"na_pay":300,"prov":63,"pay":9,"time_bad":0,"upper":500,"abn":300},"10101":{"rows":98500,"dup":0,"na_amount":0,"na_province":600,"na_pay":300,"prov":63,"pay":9,"time_bad":0,"upper":500,"abn":0},"10110":{"rows":100000,"dup":0,"na_amount":0,"na_province":0,"na_pay":0,"prov":62,"pay":9,"time_bad":0,"upper":500,"abn":300},"10111":{"rows":99700,"dup":0,"na_amount":0,"na_province":0,"na_pay":0,"prov":62,"pay":9,"time_bad":0,"upper":500,"abn":0},"11000":{"rows":100000,"dup":0,"na_amount":400,"na_province":600,"na_pay":300,"prov":32,"pay":5,"time_bad":3000,"upper":0,"abn":300},"11001":{"rows":100000,"dup":0,"na_amount":400,"na_province":600,"na_pay":300,"prov":32,"pay":5,"time_bad":3000,"upper":0,"abn":300},"11010":{"rows":100000,"dup":0,"na_amount":0,"na_province":0,"na_pay":0,"prov":31,"pay":5,"time_bad":3000,"upper":0,"abn":300},"11011":{"rows":100000,"dup":0,"na_amount":0,"na_province":0,"na_pay":0,"prov":31,"pay":5,"time_bad":3000,"upper":0,"abn":300},"11100":{"rows":100000,"dup":0,"na_amount":400,"na_province":600,"na_pay":300,"prov":32,"pay":5,"time_bad":0,"upper":0,"abn":300},"11101":{"rows":99300,"dup":0,"na_amount":0,"na_province":600,"na_pay":300,"prov":32,"pay":5,"time_bad":0,"upper":0,"abn":0},"11110":{"rows":100000,"dup":0,"na_amount":0,"na_province":0,"na_pay":0,"prov":31,"pay":5,"time_bad":0,"upper":0,"abn":300},"11111":{"rows":99700,"dup":0,"na_amount":0,"na_province":0,"na_pay":0,"prov":31,"pay":5,"time_bad":0,"upper":0,"abn":0}};
+// order_id, user_id, quantity, amount, order_time, province, pay_type, 用户表省份, 商品单价
+const RAW = [
+ ['o000013499','u0055503','2','¥233.8','2026-09-05 07:08:36','河南','微信支付','河南',116.9],
+ ['o000016572','u0031508','1','47.9','2026-09-05T23:37:51','湖南','支付宝','湖南',47.9],
+ ['o000028438','u0055700','2','95.8','2026/9/9 17:17:09','山东','银行卡','山东',47.9],
+ ['o000045509','u0081411','2','45.8','20260914 193753','上海','支付宝','上海',22.9],
+ ['o000045362','u0032851','1','3022.9','2026-09-14 18:53:44','内蒙古自治区','支付宝','内蒙古',3022.9],
+ ['o000018992','U0090022','1','46.9','2026-09-06 19:52:30','江西','花呗分期','江西',46.9],
+ ['o000004791','u0088806','3','140.7','2026-09-02 14:53:15',null,'微信支付','山东',46.9],
+ ['o000001348','u0011518','1',null,'2026-09-01 13:57:00','重庆','支付宝','重庆',15.6],
+ ['o000004085','u0077830','2','105.8','2026-09-02 11:03:30','甘肃',null,'甘肃',52.9],
+ ['o000058356','u0064533','1','140.9','2026-09-18 16:02:54','广西',' 微信支付  ','广西',140.9],
+ ['o000058356','u0064533','1','140.9','2026-09-18 16:02:54','广西',' 微信支付  ','广西',140.9],
+ ['o000047037','u0088741','2','-26.0','2026-09-15 09:27:56','四川','微信支付','四川',13.0],
+ ['o000093947','u0074362','0','657.9','2026-09-29 10:02:01','河北','微信支付','河北',657.9],
+ ['o000045669','u0014784','5','239.5','2025-09-14 20:16:08','甘肃','支付宝','甘肃',47.9],
+];
+const COLS = ['order_id','user_id','quantity','amount','order_time','province','pay_type'];
+const STD = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+const p2 = n => String(n).padStart(2, '0');
+function parseTime(s) {
+  let m;
+  if (STD.test(s)) return s;
+  if ((m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2}) (\d{2}:\d{2}:\d{2})$/))) return `${m[1]}-${p2(m[2])}-${p2(m[3])} ${m[4]}`;
+  if ((m = s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})$/))) return `${m[1]} ${m[2]}`;
+  if ((m = s.match(/^(\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})$/))) return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`;
+  return null;
+}
+const SUFFIX = /(省|市|壮族自治区|回族自治区|维吾尔自治区|自治区)$/;
+function run(on) {
+  let rows = RAW.map(r => ({ v: r.slice(0, 7), up: r[7], price: r[8], st: {}, gone: '' }));
+  const live = () => rows.filter(r => !r.gone);
+  const mark = (r, i, s) => { r.st[i] = s; };
+  let warn = [];
+  if (on[0]) { const seen = new Set(); live().forEach(r => { const k = JSON.stringify(r.v); if (seen.has(k)) r.gone = '与上一行完全相同，删除'; seen.add(k); }); }
+  if (on[1]) live().forEach(r => {
+    const [, u, , a, , p, t] = r.v;
+    if (u !== u.toLowerCase()) { r.v[1] = u.toLowerCase(); mark(r, 1, 'fixed'); }
+    if (a && a.includes('¥')) { r.v[3] = a.replace('¥', ''); mark(r, 3, 'fixed'); }
+    if (p && SUFFIX.test(p)) { r.v[5] = p.replace(SUFFIX, ''); mark(r, 5, 'fixed'); }
+    if (t && t !== t.trim()) { r.v[6] = t.trim(); mark(r, 6, 'fixed'); }
+  });
+  if (on[2]) live().forEach(r => {
+    const a = r.v[3];
+    if (a !== null) { const n = /^-?\d+(\.\d+)?$/.test(a) ? Number(a) : null; if (n === null) { r.v[3] = null; mark(r, 3, 'lost'); } else r.v[3] = n.toFixed(2); }
+    const t = parseTime(r.v[4]); if (t !== r.v[4]) { r.v[4] = t; mark(r, 4, 'fixed'); }
+  });
+  if (on[3]) live().forEach(r => {
+    if (r.v[5] === null) { r.v[5] = r.up; mark(r, 5, 'fixed'); }
+    if (r.v[3] === null) { r.v[3] = (r.price * Number(r.v[2])).toFixed(on[2] ? 2 : 1); mark(r, 3, r.st[3] === 'lost' ? 'fixed' : 'fixed'); }
+    if (r.v[6] === null) { r.v[6] = '未知'; mark(r, 6, 'fixed'); }
+  });
+  if (on[4]) {
+    if (!on[2]) warn.push('⑤ 没有生效：金额还是字符串、时间还没解析，无法比较大小，要先做 ③。');
+    else live().forEach(r => {
+      const q = Number(r.v[2]), a = r.v[3] === null ? null : Number(r.v[3]), t = r.v[4];
+      if (q <= 0) r.gone = '数量为 0，删除';
+      else if (a !== null && a <= 0) r.gone = '金额为负，删除';
+      else if (!t || t < '2026-09-01' || t > '2026-09-30 23:59:59') r.gone = '时间不在 2026 年 9 月，删除';
+      else if (a === null) r.gone = '金额为空：条件结果是 NULL，被 filter 一起删掉了！';
+    });
+  }
+  if (on[0]) { const seen = new Set(); live().forEach(r => { if (seen.has(r.v[0])) r.gone = '订单号重复，删除'; seen.add(r.v[0]); }); }
+  return { rows, warn };
+}
+function dirty(i, v, on) {
+  if (v === null) return i === 3 || i === 5 || i === 6;
+  if (i === 1) return v !== v.toLowerCase();
+  if (i === 2) return Number(v) <= 0;
+  if (i === 3) return String(v).includes('¥') || Number(v) <= 0;
+  if (i === 4) return !STD.test(v) || v < '2026-09-01';
+  if (i === 5) return SUFFIX.test(v);
+  if (i === 6) return v !== v.trim();
+  return false;
+}
+function render() {
+  const on = [...document.querySelectorAll('#steps input')].map(x => x.checked);
+  const { rows, warn } = run(on);
+  let h = '<tr>' + COLS.map(c => `<th>${c}</th>`).join('') + '<th>说明</th></tr>';
+  rows.forEach(r => {
+    h += `<tr class="${r.gone ? 'gone' : ''}">` + r.v.map((v, i) => {
+      let cls = r.st[i] || '';
+      if (!cls && dirty(i, v, on)) cls = 'dirty';
+      if (r.st[i] === 'lost' && v !== null) cls = 'fixed';
+      const txt = v === null ? '<span class="null">NULL</span>' : (i === 6 ? String(v).replace(/ /g, '·') : String(v));
+      return `<td class="${r.gone ? '' : cls}">${txt}</td>`;
+    }).join('') + `<td class="why">${r.gone || (r.st[3] === 'lost' && r.v[3] === null ? '“¥233.8” 不是数字，try_cast 得到 NULL' : '')}</td></tr>`;
+  });
+  $('tb').innerHTML = h;
+  const m = C[on.map(Number).join('')];
+  const z = v => `<b class="${v === 0 ? 'z' : ''}">${v.toLocaleString()}</b>`;
+  $('stat').innerHTML = [
+    ['行数', `<b>${m.rows.toLocaleString()}</b>`], ['完全重复的行', z(m.dup)], ['金额为空', z(m.na_amount)], ['省份为空', z(m.na_province)],
+    ['支付方式为空', z(m.na_pay)], ['省份写法', `<b class="${m.prov === 31 ? 'z' : ''}">${m.prov} 种</b>`], ['支付方式写法', `<b class="${m.pay === 5 ? 'z' : ''}">${m.pay} 种</b>`],
+    ['非标准时间', z(m.time_bad)], ['大写用户编号', z(m.upper)], ['异常行', z(m.abn)]
+  ].map(([k, v]) => `<div>${k}${v}</div>`).join('');
+  let msg = warn.slice();
+  if (on[2] && !on[1]) msg.push('<span class="bad">注意：没做 ② 就做 ③，带 ¥ 的金额转换失败变成了空值。</span>' + (on[3] ? '④ 用单价 × 数量把它们补了回来。' : ''));
+  if (on[4] && on[2] && !on[3]) msg.push(`<span class="bad">注意：金额为空的行在 ⑤ 里被一起删掉了</span>（条件结果是 NULL，filter 不保留），行数只剩 ${m.rows.toLocaleString()}。应先补缺失值再删异常值。`);
+  if (on.every(Boolean)) msg.push('<span class="ok">全部完成：102000 行 → 99700 行，没有重复、缺失、格式不一和异常值，与原始数据逐行核对完全一致。</span>');
+  if (!on.some(Boolean)) msg.push('还没有勾选任何步骤。橙色格子都是有问题的数据。');
+  $('msg').innerHTML = msg.join('<br>');
+}
+document.querySelectorAll('#steps input').forEach(x => x.onchange = render);
+$('all').onclick = () => { document.querySelectorAll('#steps input').forEach(x => x.checked = true); render(); };
+$('none').onclick = () => { document.querySelectorAll('#steps input').forEach(x => x.checked = false); render(); };
+render();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

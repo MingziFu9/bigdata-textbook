@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分区表查询</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.ctl label { font-size:13px; }
+.ctl select { padding:3px 6px; font-size:13px; }
+.days { display:grid; grid-template-columns:repeat(10,1fr); gap:4px; }
+.day { border:1px solid var(--line); border-radius:4px; padding:3px 2px; text-align:center; font-size:11px; background:#fafbfc; transition:all .25s; line-height:1.3; }
+.day b { display:block; font-size:12px; }
+.day.read { background:var(--accent); color:#fff; border-color:var(--accent); }
+.whole { border:1px solid var(--line); border-radius:6px; height:56px; display:flex; align-items:center; justify-content:center; font-size:13px; background:#fafbfc; transition:all .25s; }
+.whole.read { background:var(--accent); color:#fff; border-color:var(--accent); }
+pre.sql { background:#f5f7fa; border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:0; font-size:12.5px; white-space:pre-wrap; }
+.stat { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; }
+.stat div { border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:12px; color:var(--muted); }
+.stat div b { display:block; font-size:18px; color:var(--ink); font-variant-numeric:tabular-nums; }
+@media (max-width:620px) { .days { grid-template-columns:repeat(6,1fr); } }
+</style>
+</head>
+<body>
+<h1>分区表查询：带不带分区条件，读的数据差多少</h1>
+<div class="sub">300 万行订单（2026 年 9 月）分别存成“不分区的表”和“按日期 dt 分区的表”。选好表和查询条件，按“执行查询”，看 Hive 要读哪些目录、读多少行。</div>
+
+<div class="row ctl">
+  <label>表 <select id="tb"><option value="part" selected>orders_part（按 dt 分区）</option><option value="flat">ods_orders_big（不分区）</option></select></label>
+  <label>查询条件 <select id="cond">
+    <option value="day" selected>某一天</option>
+    <option value="week">连续 7 天</option>
+    <option value="month">整个月（不加条件）</option>
+    <option value="prov">只按省份筛选（province = '广东'）</option>
+  </select></label>
+  <label id="dl">日期 <select id="dd"></select></label>
+</div>
+<div class="row"><button class="main" id="go">执行查询</button><button id="reset">清除</button></div>
+
+<div class="box"><h2>① 要执行的 SQL</h2><pre class="sql" id="sql"></pre></div>
+<div class="box"><h2>② HDFS 上的数据：蓝色是这次要读的</h2><div id="data"></div><div class="note" id="dnote"></div></div>
+<div class="box"><h2>③ 读了多少</h2><div class="stat" id="stat"></div></div>
+<div class="msg" id="msg"></div>
+<div class="note">数据来自编者在随书集群上的实测：每个分区约 10 万行、8.1 MB，不分区的表是一个 240 MB 的文件。“编者实测耗时”是 Hive 4.2.1（Tez 本地模式）在 4 核主机上的结果，只有三种情况实测过，其余标“—”。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const ROWS = [99645,99640,100129,100272,100035,100145,99874,100362,99742,100023,100702,99598,100136,99871,99888,100287,100102,99696,100107,100233,100274,100455,99936,100022,99700,100049,99904,99721,99431,100021];
+const BYTES = [8453333,8452721,8495022,8505815,8486541,8495359,8472612,8514475,8461143,8485379,8543075,8448616,8493977,8471422,8474222,8508290,8491624,8458099,8492898,8502817,8507178,8522160,8478646,8485532,8458228,8486812,8475006,8460118,8434828,8484529];
+const FLAT_BYTES = 251500557, FLAT_ROWS = 3000000;
+const day = i => '2026-09-' + String(i + 1).padStart(2, '0');
+for (let i = 0; i < 30; i++) $('dd').add(new Option(day(i), i));
+$('dd').value = 14;
+let read = null;
+function sqlText() {
+  const tb = $('tb').value, c = $('cond').value, d = +$('dd').value;
+  const name = tb === 'part' ? 'orders_part' : 'ods_orders_big';
+  let w = '';
+  if (c === 'day') w = tb === 'part' ? `WHERE dt = '${day(d)}'` : `WHERE TO_DATE(order_time) = '${day(d)}'`;
+  if (c === 'week') { const e = Math.min(d + 6, 29); w = tb === 'part' ? `WHERE dt BETWEEN '${day(d)}' AND '${day(e)}'` : `WHERE TO_DATE(order_time) BETWEEN '${day(d)}' AND '${day(e)}'`; }
+  if (c === 'prov') w = `WHERE province = '广东'`;
+  return `SELECT COUNT(*) AS cnt, SUM(amount) AS gmv\nFROM ${name}\n${w}`.trim();
+}
+function selected() {
+  const c = $('cond').value, d = +$('dd').value;
+  if (c === 'day') return [d];
+  if (c === 'week') return Array.from({ length: Math.min(7, 30 - d) }, (_, k) => d + k);
+  return Array.from({ length: 30 }, (_, k) => k);
+}
+function timeOf(tb, c) {
+  if (tb === 'flat' && c === 'day') return '约 7.2 秒';
+  if (tb === 'part' && c === 'day') return '约 1.0 秒';
+  if (tb === 'part' && c === 'month') return '约 3.7 秒';
+  return '—';
+}
+function render() {
+  const tb = $('tb').value, c = $('cond').value;
+  $('dl').style.display = (c === 'day' || c === 'week') ? '' : 'none';
+  $('sql').textContent = sqlText();
+  if (tb === 'part') {
+    $('data').innerHTML = '<div class="days">' + ROWS.map((r, i) =>
+      `<div class="day ${read && read.includes(i) ? 'read' : ''}"><b>dt=${String(i + 1).padStart(2, '0')}</b>${(BYTES[i] / 1048576).toFixed(1)} MB</div>`).join('') + '</div>';
+    $('dnote').innerHTML = '每个格子是 HDFS 上的一个目录，例如 <code>/user/hive/warehouse/xiaoxiang.db/orders_part/dt=2026-09-15/</code>。';
+  } else {
+    $('data').innerHTML = `<div class="whole ${read ? 'read' : ''}">orders_3000000.csv · 一个文件 · ${(FLAT_BYTES / 1048576).toFixed(1)} MB · 300 万行</div>`;
+    $('dnote').innerHTML = '不分区的表只有一个目录 <code>/xiaoxiang/ods/orders_big/</code>，Hive 不知道哪一天的数据在文件的哪里。';
+  }
+  if (!read) { $('stat').innerHTML = ''; $('msg').innerHTML = '按“执行查询”开始。'; return; }
+  let rows, bytes, dirs;
+  if (tb === 'part') { rows = read.reduce((s, i) => s + ROWS[i], 0); bytes = read.reduce((s, i) => s + BYTES[i], 0); dirs = read.length; }
+  else { rows = FLAT_ROWS; bytes = FLAT_BYTES; dirs = 1; }
+  const pct = Math.min(100, bytes / FLAT_BYTES * 100).toFixed(1);
+  $('stat').innerHTML = `<div>读取的目录<b>${dirs} 个</b></div><div>读取的行数<b>${rows.toLocaleString()}</b></div><div>读取的数据量<b>${(bytes / 1048576).toFixed(1)} MB</b></div><div>占全部数据<b>${pct}%</b></div><div>编者实测耗时<b>${timeOf(tb, c)}</b></div>`;
+  let m;
+  if (tb === 'part' && (c === 'day' || c === 'week')) m = `<span class="ok">条件里有分区字段 dt，Hive 只读 ${dirs} 个分区目录，其余 ${30 - dirs} 个直接跳过</span>（这叫“分区裁剪”）。`;
+  else if (tb === 'part' && c === 'prov') m = `<span class="bad">条件里没有分区字段，分区帮不上忙</span>：广东的订单分散在每一天里，30 个目录都要读。按什么分区，要看平时最常按什么条件查。`;
+  else if (tb === 'part') m = '查整个月，本来就要读全部 30 个分区，分区表和不分区的表读的数据一样多。';
+  else m = `<span class="bad">不分区的表只能把 300 万行全部读一遍</span>，再一行行判断是否满足条件。` + (c === 'day' ? '换成分区表只需读约 3%。' : '');
+  $('msg').innerHTML = m;
+}
+$('go').onclick = () => { read = selected(); render(); };
+$('reset').onclick = () => { read = null; render(); };
+['tb', 'cond', 'dd'].forEach(id => $(id).onchange = () => { read = null; render(); });
+render();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

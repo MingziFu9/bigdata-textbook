@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spark 作业怎样拆成 Stage 和 Task</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.ctl label { font-size:13px; }
+.ctl select { padding:3px 6px; font-size:13px; }
+.ops { display:flex; flex-wrap:wrap; gap:4px; }
+.ops button { border-radius:6px; font-size:12.5px; }
+.ops button.wide { border-color:var(--warn); color:var(--warn); }
+.ops button.act { border-color:var(--pos); color:var(--pos); }
+.prog { font-family:"JetBrains Mono",Consolas,monospace; font-size:12.5px; background:#f5f7fa; border:1px solid var(--line); border-radius:6px; padding:8px 10px; white-space:pre-wrap; min-height:3em; }
+.prog .w { color:var(--warn); font-weight:600; } .prog .a { color:var(--pos); font-weight:600; }
+.dag { display:flex; gap:10px; align-items:stretch; overflow-x:auto; padding:4px 0; }
+.stage { border:2px solid #f48fb1; border-radius:8px; padding:6px; min-width:150px; background:#fff; }
+.stage h3 { margin:0 0 4px; font-size:12.5px; color:#ad1457; }
+.op { background:#bbdefb; border-radius:4px; padding:2px 6px; margin:3px 0; font-size:12px; }
+.op.w { background:#ffe0b2; }
+.tasks { display:flex; flex-wrap:wrap; gap:3px; margin-top:6px; }
+.task { width:22px; height:18px; border-radius:3px; background:#e0e0e0; font-size:10px; text-align:center; line-height:18px; transition:background .3s; }
+.task.run { background:#ffd54f; } .task.done { background:var(--pos); color:#fff; }
+.arrow { align-self:center; font-size:12px; color:var(--warn); text-align:center; min-width:60px; }
+</style>
+</head>
+<body>
+<h1>Spark 作业怎样拆成 Stage 和 Task</h1>
+<div class="sub">用下面的按钮拼一个 RDD 程序：蓝色是普通转换，<span style="color:var(--warn)">橙色</span>是要 Shuffle 的转换，<span style="color:var(--pos)">绿色</span>是行动。最后按“运行”，看 Spark 怎样把它切成 Stage、每个 Stage 有几个 Task。</div>
+
+<div class="row ctl">
+  <label>例子 <select id="ex">
+    <option value="">（自己拼）</option>
+    <option value="wc" selected>热门页面（实验 6-1）</option>
+    <option value="uv">每小时 UV（实验 6-2）</option>
+    <option value="filter">只过滤再计数</option>
+  </select></label>
+  <label>分区数 <select id="np"><option>2</option><option selected>3</option><option>4</option><option>6</option></select></label>
+  <label>可用 CPU 核数 <select id="cores"><option>1</option><option selected>2</option><option>4</option></select></label>
+</div>
+<div class="ops" id="ops"></div>
+<div class="box"><h2>① 你的程序</h2><div class="prog" id="prog"></div></div>
+<div class="row"><button class="main" id="run">运行</button><button id="undo">撤销一步</button><button id="clear">清空</button></div>
+<div class="box"><h2>② Spark 生成的 Job：每个粉色框是一个 Stage，小方块是 Task</h2><div class="dag" id="dag"></div></div>
+<div class="msg" id="msg"></div>
+<div class="note">简化说明：Shuffle 之后的 Stage 的 Task 数这里取与分区数相同（Spark 默认沿用上游的分区数）。真实的 Spark UI 中，同一个 Stage 的多个转换会合并显示，见第 6 章的截图；读本地文件时每 32 MB 左右一个分区，读 HDFS 时每个数据块一个分区。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const OPS = [
+  ['textFile', 'src', 'textFile("access.log")'], ['map', 'n', 'map(...)'], ['flatMap', 'n', 'flatMap(...)'], ['filter', 'n', 'filter(...)'],
+  ['reduceByKey', 'w', 'reduceByKey(add)'], ['distinct', 'w', 'distinct()'], ['sortBy', 'w', 'sortBy(...)'], ['groupByKey', 'w', 'groupByKey()'],
+  ['count', 'a', 'count()'], ['collect', 'a', 'collect()'], ['take', 'a', 'take(10)'], ['saveAsTextFile', 'a', 'saveAsTextFile(...)']
+];
+const EX = {
+  wc: ['textFile', 'map', 'map', 'reduceByKey', 'count'],
+  uv: ['textFile', 'map', 'filter', 'map', 'distinct', 'map', 'reduceByKey', 'collect'],
+  filter: ['textFile', 'map', 'filter', 'count']
+};
+let prog = [], timer = null;
+const kind = n => OPS.find(o => o[0] === n)[1];
+const label = n => OPS.find(o => o[0] === n)[2];
+$('ops').innerHTML = OPS.map(o => `<button data-op="${o[0]}" class="${o[1] === 'w' ? 'wide' : o[1] === 'a' ? 'act' : ''}">${o[0]}</button>`).join('');
+$('ops').onclick = e => {
+  const op = e.target.dataset.op; if (!op) return;
+  if (!prog.length && op !== 'textFile') { msg('<span class="bad">先用 textFile 读入数据。</span>'); return; }
+  if (prog.length && op === 'textFile') { msg('本动画只演示一个数据源。'); return; }
+  if (prog.length && kind(prog[prog.length - 1]) === 'a') { msg('行动已经写好了。要再算别的，先“撤销一步”。'); return; }
+  prog.push(op); $('ex').value = ''; stop(); render(false);
+};
+function msg(h) { $('msg').innerHTML = h; }
+function stop() { if (timer) clearInterval(timer); timer = null; }
+function stages() {
+  const st = [[]];
+  prog.forEach(op => { if (kind(op) === 'w' && st[st.length - 1].length) st.push([]); st[st.length - 1].push(op); });
+  return st;
+}
+function render(ran) {
+  $('prog').innerHTML = prog.length ? 'sc.' + prog.map(op => {
+    const k = kind(op); return `<span class="${k === 'w' ? 'w' : k === 'a' ? 'a' : ''}">${label(op)}</span>`; }).join('\n  .') : '（点上面的按钮拼程序）';
+  const np = +$('np').value;
+  const hasAct = prog.length && kind(prog[prog.length - 1]) === 'a';
+  if (!ran) {
+    $('dag').innerHTML = '';
+    if (!prog.length) msg('点上面的按钮拼程序，或者从“例子”里选一个。');
+    else if (!hasAct) msg('程序里还没有行动，<b>Spark 什么也不会做</b>：转换只是记下“要怎样算”，这叫惰性执行。加一个绿色的行动试试。');
+    else msg('按“运行”提交 Job。');
+    return;
+  }
+  const st = stages();
+  $('dag').innerHTML = st.map((ops, i) => {
+    const tasks = Array.from({ length: np }, (_, t) => `<div class="task" id="t${i}_${t}">${t}</div>`).join('');
+    const arrow = i < st.length - 1 ? `<div class="arrow">Shuffle<br>⟶<br>按 key 重新分组</div>` : '';
+    return `<div class="stage"><h3>Stage ${i}（${np} 个 Task）</h3>${ops.map(op => `<div class="op ${kind(op) === 'w' ? 'w' : ''}">${op}</div>`).join('')}<div class="tasks">${tasks}</div></div>${arrow}`;
+  }).join('');
+  const cores = +$('cores').value;
+  const total = st.length * np, rounds = st.reduce(s => s + Math.ceil(np / cores), 0);
+  msg(`行动 <b>${prog[prog.length - 1]}</b> 触发了 1 个 Job。它被 ${st.length - 1} 次 Shuffle 切成 <b>${st.length} 个 Stage</b>，共 <b>${total} 个 Task</b>。` +
+      `每个 Stage 的 Task 数等于分区数（${np}）；同时只能运行 ${cores} 个 Task（等于 CPU 核数），所以每个 Stage 要分 ${Math.ceil(np / cores)} 批，共 ${rounds} 批。后一个 Stage 要等前一个全部完成才能开始。`);
+  let si = 0, done = 0;
+  timer = setInterval(() => {
+    if (si >= st.length) { stop(); return; }
+    for (let t = 0; t < np; t++) { const el = $(`t${si}_${t}`); el.className = 'task' + (t < done ? ' done' : t < done + cores ? ' run' : ''); }
+    if (done >= np) { si++; done = 0; return; }
+    done = Math.min(np, done + cores);
+  }, 650);
+}
+$('run').onclick = () => {
+  if (!prog.length || kind(prog[prog.length - 1]) !== 'a') { render(false); return; }
+  stop(); render(true);
+};
+$('undo').onclick = () => { prog.pop(); $('ex').value = ''; stop(); render(false); };
+$('clear').onclick = () => { prog = []; $('ex').value = ''; stop(); render(false); };
+$('ex').onchange = () => { prog = EX[$('ex').value] ? [...EX[$('ex').value]] : []; stop(); render(false); };
+['np', 'cores'].forEach(id => $(id).onchange = () => { stop(); render(false); });
+prog = [...EX.wc]; render(false);
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

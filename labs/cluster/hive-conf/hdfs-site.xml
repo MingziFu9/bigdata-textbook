@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!-- Hive 写到 HDFS 的文件也用 2 个副本，和随书集群一致 -->
+<configuration>
+  <property>
+    <name>dfs.replication</name>
+    <value>2</value>
+  </property>
+  <property>
+    <name>dfs.client.use.datanode.hostname</name>
+    <value>true</value>
+  </property>
+</configuration>

@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!-- Hive 容器用的 Hadoop 客户端配置：数据放在随书集群的 HDFS 上 -->
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://master:8020</value>
+  </property>
+  <property>
+    <name>dfs.client.use.datanode.hostname</name>
+    <value>true</value>
+  </property>
+</configuration>

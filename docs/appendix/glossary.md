@@ -101,16 +101,69 @@ description: 本书主要术语的中英文名称、简明定义和例子，按�
 
 | 术语 | 英文 | 定义 | 例子 |
 |---|---|---|---|
+| <span id="g-Hive"></span>Hive | Apache Hive | 建立在 Hadoop 上的数据仓库工具，把 HDFS 上的文件看成表，用类似 SQL 的语言查询，在背后把 SQL 翻译成分布式计算任务 | 用一句 `GROUP BY` 统计 HDFS 上 10 万行订单的各品类销售额 |
+| <span id="g-HiveQL"></span>HiveQL | Hive Query Language | Hive 的查询语言，写法和标准 SQL 几乎一样，另有分区、存储格式等 Hive 特有的语法 | `SELECT status, COUNT(*) FROM ods_orders GROUP BY status;` |
+| <span id="g-数据仓库"></span>数据仓库 | Data Warehouse | 汇集多个业务系统的历史数据、专门用于统计分析和决策支持的数据存储，以批量读取和汇总为主，很少修改 | 小象优选每天把业务库的订单同步到 Hive 中做报表 |
+| <span id="g-ODS"></span>ODS | Operational Data Store | 数据仓库的操作数据层，原样存放从业务系统同步来的数据 | `ods_orders`：订单表原始 CSV 上建的外部表 |
+| <span id="g-DWD"></span>DWD | Data Warehouse Detail | 数据仓库的明细数据层，存放清洗、统一格式并补充常用字段后的明细数据 | `dwd_order_detail`：只留已完成订单，补上品类和会员等级 |
+| <span id="g-DWS"></span>DWS | Data Warehouse Summary | 数据仓库的汇总数据层，存放按常用维度汇总好、供多张报表共用的数据 | `dws_province_day`：每天每省一行的订单数和销售额 |
+| <span id="g-ADS"></span>ADS | Application Data Service | 数据仓库的应用数据层，存放直接给报表、大屏或接口使用的结果 | `ads_province_daily_report`：每日各省销售日报 |
+| <span id="g-事实表"></span>事实表 | Fact Table | 记录业务事件的表，一行是一次事件，带有金额、数量等可累加的数字，行数增长快 | 订单表 |
+| <span id="g-维度表"></span>维度表 | Dimension Table | 描述业务事件的角度（谁、什么、在哪）的表，行数相对少、变化慢 | 用户表、商品表 |
+| <span id="g-Metastore"></span>Metastore | Hive Metastore | Hive 的元数据服务，保存库、表、列、类型、分区和数据所在目录等表结构信息 | 随书环境的 metastore 容器，端口 9083，用 Derby 存元数据 |
+| <span id="g-HiveServer2"></span>HiveServer2 | HiveServer2 | Hive 的服务端，接收客户端发来的 SQL，向 Metastore 查询表结构，再交给计算引擎执行 | 随书环境的 hiveserver2 容器，连接端口 10000，网页端口 10002 |
+| <span id="g-Beeline"></span>Beeline | Beeline | Hive 自带的命令行客户端，通过 JDBC 连接 HiveServer2 执行 HiveQL | `beeline -u jdbc:hive2://localhost:10000 -n root` |
+| <span id="g-Tez"></span>Tez | Apache Tez | Hive 默认使用的计算引擎，把一条 SQL 编排成由多个 Map、Reducer 步骤组成的计算图执行，比 MapReduce 少写中间结果 | 查询进度表中的 `Map 1`、`Reducer 2` |
+| <span id="g-内部表"></span>内部表 | Managed Table | 由 Hive 管理数据的表，数据默认放在 warehouse 目录，删表时数据一起删除 | `products_managed`，删表后目录被删除 |
+| <span id="g-外部表"></span>外部表 | External Table | 用 `LOCATION` 指向已有 HDFS 目录的表，删表时只删表结构，数据文件保留 | `ods_products` 指向 `/xiaoxiang/ods/products` |
+| <span id="g-分区表"></span>分区表 | Partitioned Table | 按某个字段的值把数据存放在表目录下不同子目录中的表，每个值一个分区 | `orders_part` 按 `dt` 分成 30 个分区 |
+| <span id="g-分区裁剪"></span>分区裁剪 | Partition Pruning | 查询条件中有分区字段时，只读取符合条件的分区目录、跳过其余分区 | `WHERE dt='2026-09-15'` 只读 1 个分区约 10 万行 |
+| <span id="g-动态分区"></span>动态分区 | Dynamic Partition | 写入分区表时，按每行数据中分区字段的值自动把它放进对应分区 | `INSERT OVERWRITE TABLE orders_part PARTITION (dt) SELECT ..., dt FROM ...` |
+| <span id="g-ORC"></span>ORC | Optimized Row Columnar | 一种列式存储文件格式，按列压缩存放，查询时只读需要的列，Hive 加工表常用 | `STORED AS ORC`；10 万行订单的 DWD 表约 1.1 MB |
+| <span id="g-窗口函数"></span>窗口函数 | Window Function | 在保留每一行的同时，对同一组的若干行做计算的函数，写成 `函数() OVER (PARTITION BY ... ORDER BY ...)` | `RANK()` 排名、`SUM() OVER` 累计、`LAG()` 环比 |
+| <span id="g-DataX"></span>DataX | DataX | 阿里巴巴开源的离线数据同步工具，用读插件和写插件在 MySQL、HDFS、Hive 等数据源之间搬运数据 | 每天凌晨把业务库前一天的订单同步到 ODS 层 |
 
 ## 第 6 章 Spark 入门与 RDD 编程
 
 | 术语 | 英文 | 定义 | 例子 |
 |---|---|---|---|
+| <span id="g-Spark"></span>Spark | Apache Spark | 通用的分布式计算引擎，把多步计算组织成一个流程、中间结果尽量放在内存中，并提供 SQL、流处理、机器学习等组件 | 用约 27 行 Python 完成第 4 章两个 MapReduce 作业的统计 |
+| <span id="g-Driver"></span>Driver | Driver | Spark 程序的驱动进程，运行主程序，把计算拆成任务分派给 Executor 并收集结果 | `print` 和 `collect()` 的结果出现在 Driver 一侧 |
+| <span id="g-Executor"></span>Executor | Executor | 在工作节点上为某个 Spark 程序启动的进程，运行任务、缓存数据，可以接连运行很多个任务 | 实验 6-3 在 YARN 上启动了 2 个 Executor，各 1 个核 |
+| <span id="g-RDD"></span>RDD | Resilient Distributed Dataset | 弹性分布式数据集，Spark 最基础的数据抽象：分成多个分区、分布在各 Executor 上、只读，丢失的分区可按由来重算 | `sc.textFile("access.log")` 得到每行一个元素的 RDD |
+| <span id="g-转换"></span>转换 | Transformation | 由一个 RDD 生成新 RDD 的操作，惰性执行，只记录要怎样计算 | `map`、`filter`、`reduceByKey` |
+| <span id="g-行动"></span>行动 | Action | 要求返回具体结果或写出文件的操作，会触发前面所有转换的实际计算 | `count`、`collect`、`take`、`saveAsTextFile` |
+| <span id="g-惰性执行"></span>惰性执行 | Lazy Evaluation | 转换不马上执行，等遇到行动时才把整个计算流程一起执行 | 定义三个转换用时 0.6 秒，`count()` 时才读文件 |
+| <span id="g-Job"></span>Job | Job | 由一个行动触发的一次完整计算 | 实验 6-1 的程序有 4 个行动，Spark UI 上有 4 个 Job |
+| <span id="g-Stage"></span>Stage | Stage | Job 在 Shuffle 处切开后得到的计算阶段，同一 Stage 内的操作在每个分区上连续执行 | 含一次 `reduceByKey` 的 Job 有 2 个 Stage |
+| <span id="g-Task"></span>Task | Task | Stage 在一个分区上的执行单元，一个分区一个 Task，由 Executor 的 CPU 核运行 | 70 MB 的本地日志分 3 个分区，每个 Stage 3 个 Task |
+| <span id="g-Spark-UI"></span>Spark UI | Spark Web UI | Spark 程序运行时提供的网页，显示 Job、Stage、Task、缓存和 Executor 的情况，默认端口 4040 | 浏览器打开 `localhost:4040` 查看 DAG 图 |
+| <span id="g-pyspark"></span>pyspark | PySpark Shell | Spark 的 Python 交互环境，启动时已创建好 `spark` 和 `sc` 两个对象 | 在 spark 容器中输入 `pyspark` |
+| <span id="g-spark-submit"></span>spark-submit | spark-submit | 提交 Spark 程序运行的命令，用 `--master` 指定本地模式或集群 | `spark-submit --master yarn lab6_3_yarn_pages.py` |
+| <span id="g-键值对-RDD"></span>键值对 RDD | Pair RDD | 元素是 `(键, 值)` 二元组的 RDD，可以使用 reduceByKey、join 等按键操作 | `(页面, 1)` 组成的 RDD |
+| <span id="g-缓存"></span>缓存 | Cache / Persist | 把计算出的 RDD 留在 Executor 内存中，供后续多次使用，避免重复读取和计算 | `fields.cache()` 后第二次 `count` 快了 4～6 倍 |
+| <span id="g-Serverless-Spark"></span>Serverless Spark | Serverless Spark | 云上无需管理集群的 Spark 服务，按作业临时启动资源、用完释放、按量计费 | 阿里云 EMR Serverless Spark |
 
 ## 第 7 章 用 Spark 做数据清洗
 
 | 术语 | 英文 | 定义 | 例子 |
 |---|---|---|---|
+| <span id="g-数据清洗"></span>数据清洗 | Data Cleaning | 发现并改正数据中的重复、缺失、格式不一、类型错误和异常值，使数据可以直接用于分析 | 实验 7-1 把 102000 行脏订单清洗成 99700 行 |
+| <span id="g-脏数据"></span>脏数据 | Dirty Data | 含有重复、缺失、格式不一、错误或异常值的数据 | 金额写成“¥233.8”、省份写成“内蒙古自治区” |
+| <span id="g-数据质量"></span>数据质量 | Data Quality | 数据满足使用要求的程度，国家标准 GB/T 36344 从规范性、完整性、准确性、一致性、时效性、可访问性六个方面评价 | 省份为空影响完整性，同一省份两种写法影响一致性 |
+| <span id="g-缺失值"></span>缺失值 | Missing Value | 应该有值却为空的字段，Spark 中显示为 NULL | 脏订单中 400 行金额为空 |
+| <span id="g-重复值"></span>重复值 | Duplicate | 同一条记录出现了多次，会让统计结果偏大 | 系统重复上报的 2000 行订单 |
+| <span id="g-异常值"></span>异常值 | Outlier | 不符合业务规则或明显偏离正常范围的值 | 数量为 0、金额为负、下单时间在 2025 年 |
+| <span id="g-DataFrame"></span>DataFrame | DataFrame | 带列名和类型的分布式数据表，Spark SQL 的核心数据结构，Spark 能据此自动优化计算 | `spark.read.csv(...)` 返回一个 DataFrame |
+| <span id="g-SparkSession"></span>SparkSession | SparkSession | 使用 DataFrame 和 SQL 的入口对象，负责读数据、建表和执行 SQL | pyspark 中已建好的 `spark` 变量 |
+| <span id="g-Schema"></span>Schema | Schema | DataFrame 的结构，即每一列的列名、类型和能否为空 | `printSchema()` 显示 `amount: double` |
+| <span id="g-ANSI-模式"></span>ANSI 模式 | ANSI Mode | Spark 4 默认开启的 SQL 规则：类型转换失败、除以 0 等直接报错而不是悄悄返回空值 | `cast('¥59.80' as decimal)` 报 CAST_INVALID_INPUT |
+| <span id="g-try_cast"></span>try_cast | try_cast | 与 cast 相同的类型转换，但转换失败时返回 NULL 而不报错 | `F.col("amount").try_cast("decimal(10,2)")` |
+| <span id="g-正则表达式"></span>正则表达式 | Regular Expression | 描述文本模式的小语言，用来查找、提取或替换符合某种模式的字符串 | `(省\|市\|自治区)$` 匹配结尾的“省”“市”“自治区” |
+| <span id="g-左连接"></span>左连接 | Left Join | 保留左表的全部行，右表能匹配上的补充列、匹配不上的填 NULL | 订单表左连接用户表补省份 |
+| <span id="g-宽表"></span>宽表 | Wide Table | 把事实表和多张维度表合并在一起、列很多的表，便于直接分析 | 订单 + 用户 + 商品合成的 16 列宽表 |
+| <span id="g-Parquet"></span>Parquet | Apache Parquet | 开源的列式存储文件格式，自带表结构、压缩率高，是 Spark 默认的文件格式 | 70.2 MB 的日志存成 Parquet 后为 19.1 MB |
+| <span id="g-列式存储"></span>列式存储 | Columnar Storage | 把同一列的数据连续存放，查询时只读用到的列，同列数据相似也更容易压缩 | Parquet、ORC 都是列式存储 |
 
 ## 第 8 章 DataFrame 与 Spark SQL 数据分析
 
