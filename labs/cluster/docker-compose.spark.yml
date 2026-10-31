@@ -14,6 +14,8 @@ services:
       TZ: Asia/Shanghai
       HADOOP_CONF_DIR: /opt/hadoop-conf
       SPARK_CONF_DIR: /opt/spark-conf
+      # 第 9 章：Spark 读写 Kafka 要用的 4 个 jar（先按实验 9-2 下载到 labs/jars/），用法 spark-submit --jars $KAFKA_JARS ...
+      KAFKA_JARS: /labs/jars/spark-sql-kafka-0-10_2.13-4.1.4.jar,/labs/jars/spark-token-provider-kafka-0-10_2.13-4.1.4.jar,/labs/jars/kafka-clients-3.9.1.jar,/labs/jars/commons-pool2-2.12.1.jar
       PATH: /opt/spark/bin:/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     ports:
       - "4040:4040"     # Spark UI（程序运行时才有）

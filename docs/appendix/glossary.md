@@ -188,6 +188,24 @@ description: 本书主要术语的中英文名称、简明定义和例子，按�
 
 | 术语 | 英文 | 定义 | 例子 |
 |---|---|---|---|
+| <span id="g-消息队列"></span>消息队列 | Message Queue | 在发送数据的系统和使用数据的系统之间暂存消息的中间件，让双方不必同时在线、各按自己的速度工作 | 下单系统把订单写进 Kafka，大屏和风控系统各自去取 |
+| <span id="g-Kafka"></span>Kafka | Apache Kafka | 开源的分布式消息系统（事件流平台），把消息按主题和分区顺序存放在磁盘上，供多个系统读取 | 随书 Kafka 4.4.0 容器，主题 orders 有 3 个分区 |
+| <span id="g-Broker"></span>Broker | Broker | 运行 Kafka 服务、存放分区数据的服务器节点 | 随书环境只有一个 Broker，容器名 kafka |
+| <span id="g-主题"></span>主题 | Topic | Kafka 中存放同一类消息的逻辑分类，相当于一个文件夹 | 订单消息都发到主题 orders |
+| <span id="g-生产者"></span>生产者 | Producer | 向 Kafka 主题发送消息的程序 | 实验 9-1 的 `order_producer.py` |
+| <span id="g-消费者组"></span>消费者组 | Consumer Group | 用同一个 group.id 一起读一个主题的一组消费者，每个分区只分给组里的一个消费者，不同的组各读各的 | 大屏组 screen 和风控组 risk 各自读到全部订单 |
+| <span id="g-偏移量"></span>偏移量 | Offset | 消息在分区中的序号，从 0 开始；消费者组靠它记住每个分区读到了哪里 | 分区 0 偏移量 259 的消息 |
+| <span id="g-消费积压"></span>消费积压 | Consumer Lag | 分区中最新消息的偏移量与消费者组已读到的偏移量之差，即还没处理的消息数 | `kafka-consumer-groups.sh --describe` 输出的 LAG 列 |
+| <span id="g-Structured-Streaming"></span>Structured Streaming | Structured Streaming | Spark 的流处理组件，把源源不断的数据看成一张不断变长的表，用 DataFrame 和 SQL 的写法做增量计算 | `spark.readStream.format("kafka")` |
+| <span id="g-无界表"></span>无界表 | Unbounded Table | Structured Streaming 对数据流的看法：新到的每条数据都是追加到表末尾的一行，表没有尽头 | 订单流就是一张一直在变长的订单表 |
+| <span id="g-事件时间"></span>事件时间 | Event Time | 事件实际发生的时间，通常写在数据里；与数据到达、被处理的时间不同 | 订单消息中的 `event_time`（下单时间） |
+| <span id="g-滚动窗口"></span>滚动窗口 | Tumbling Window | 长度固定、首尾相接、互不重叠的时间窗口，每条数据只属于一个窗口 | `window("event_time", "1 minute")` 每分钟一个窗口 |
+| <span id="g-滑动窗口"></span>滑动窗口 | Sliding Window | 长度固定、按较短步长向前滑动、相互重叠的时间窗口，一条数据可能属于多个窗口 | `window("event_time", "5 minutes", "1 minute")` |
+| <span id="g-水位线"></span>水位线 | Watermark | 流处理中“最多等迟到数据多久”的界线，等于见过的最大事件时间减去设定的等待时间；早于它结束的窗口不再更新 | `withWatermark("event_time", "2 minutes")` |
+| <span id="g-输出模式"></span>输出模式 | Output Mode | 流查询每次把结果表的哪些行写出去：append 只写最终结果，update 写有变化的行，complete 写全部结果 | 实验 9-2 用 `outputMode("update")` |
+| <span id="g-检查点"></span>检查点 | Checkpoint | 流查询定期保存的读取进度和中间状态，程序重启后从这里接着算，不丢不重 | `option("checkpointLocation", "/xiaoxiang/checkpoint/lab9_2")` |
+| <span id="g-Flink"></span>Flink | Apache Flink | 开源的分布式流处理引擎，逐条处理数据、延迟低，国内实时计算的主流选择 | 阿里云“实时计算 Flink 版” |
+| <span id="g-实时数仓"></span>实时数仓 | Real-time Data Warehouse | 数据从产生到可以查询只需秒级或分钟级的数据仓库，由流处理引擎持续加工各层数据 | Flink + Paimon 搭建的流式湖仓 |
 
 ## 第 10 章 Spark MLlib 机器学习应用
 

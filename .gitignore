@@ -13,5 +13,5 @@ labs/data/scale/
 labs/data/xiaoxiang_dirty/
 labs/data/xiaoxiang_clean/
 labs/ch07/output/
-labs/jars/
+labs/jars/*.jar
 labs/ch08/output/

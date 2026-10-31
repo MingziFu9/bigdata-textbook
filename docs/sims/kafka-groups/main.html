@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kafka 分区与消费者组</title>
+<link rel="stylesheet" href="../common/sim.css">
+<style>
+.flow { display:grid; grid-template-columns:150px 1fr 1fr; gap:10px; align-items:start; }
+@media (max-width:680px) { .flow { grid-template-columns:1fr; } }
+.part { border:1px solid var(--line); border-radius:6px; padding:6px; margin-bottom:6px; background:#fafbfc; }
+.part h3 { font-size:12.5px; margin:0 0 4px; display:flex; justify-content:space-between; }
+.msgs { display:flex; flex-wrap:wrap; gap:3px; min-height:24px; }
+.m { font-size:11px; padding:1px 4px; border-radius:3px; border:1px solid var(--line); background:#fff; }
+.m.done { background:#e0e0e0; color:#9e9e9e; }
+.m.new { animation:pop .5s; }
+@keyframes pop { from { background:#fff59d; } }
+.cons { border:1px solid var(--line); border-radius:6px; padding:6px 8px; margin-bottom:6px; font-size:12.5px; }
+.cons.idle { color:var(--muted); border-style:dashed; }
+.cons b { color:var(--accent); }
+.prod { border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:12.5px; }
+.lag { font-size:11px; color:var(--warn); }
+.k { font-weight:600; }
+</style>
+</head>
+<body>
+<h1>Kafka 分区与消费者组：消息去了哪个分区，谁来读</h1>
+<div class="sub">生产者按“用户编号”这个键把订单消息发到主题 orders；同一个消费者组里的消费者分摊分区，每个分区只给组里的一个消费者读；不同的组各读各的。</div>
+
+<div class="row">
+  <label>分区数 <select id="np"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>6</option></select></label>
+  <label>“大屏组”消费者个数 <select id="nc"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+  <label><input type="checkbox" id="g2"> 再加一个“风控组”（1 个消费者）</label>
+</div>
+<div class="row">
+  <button class="main" id="send">生产者发 6 条</button>
+  <button id="poll">消费者读一轮</button>
+  <button id="crash">大屏组 1 号消费者宕机</button>
+  <button id="reset">重来</button>
+</div>
+
+<div class="flow">
+  <div class="box"><h2>① 生产者</h2><div class="prod" id="prod"></div></div>
+  <div class="box"><h2>② 主题 orders 的分区</h2><div id="parts"></div></div>
+  <div class="box"><h2>③ 消费者组</h2><div id="groups"></div></div>
+</div>
+<div class="msg" id="msg"></div>
+<div class="note">分区号 = 键的哈希值 ÷ 分区数的余数（这里用简化的哈希演示，真实 Kafka 用 murmur2 哈希）。灰色的消息是“大屏组”已经读过的；偏移量 = 消息在分区里的序号，从 0 开始；积压（LAG）= 分区里的消息数 − 组已读到的偏移量。</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const USERS = ['u0001', 'u0002', 'u0003', 'u0004', 'u0005', 'u0006', 'u0007', 'u0008'];
+const hash = s => parseInt(s.slice(1), 10) * 7 + 3;     // 简化的哈希
+let parts, seq, read, readB, dead, last, sent, round;
+function reset() {
+  const n = +$('np').value;
+  parts = Array.from({ length: n }, () => []);
+  read = Array(n).fill(0); readB = Array(n).fill(0);
+  seq = 0; round = 0; dead = false; last = []; sent = [];
+  render('选好分区数和消费者个数，按“生产者发 6 条”。');
+}
+function members() {
+  const n = +$('nc').value;
+  const ids = Array.from({ length: n }, (_, i) => i + 1).filter(i => !(dead && i === 1));
+  return ids;
+}
+function assign(ids, n) {     // 轮流分配：分区 p 给第 p % 人数 个消费者
+  const a = {}; ids.forEach(i => a[i] = []);
+  for (let p = 0; p < n; p++) a[ids[p % ids.length]].push(p);
+  return a;
+}
+function render(m) {
+  const n = parts.length;
+  $('prod').innerHTML = sent.length ? '最近发出：<br>' + sent.map(s => `<span class="k">${s.k}</span> → 分区 ${s.p}`).join('<br>') : '还没有发消息';
+  $('parts').innerHTML = parts.map((ms, p) =>
+    `<div class="part"><h3><span>分区 ${p}</span><span class="lag">大屏组积压 ${ms.length - read[p]}${$('g2').checked ? '　风控组积压 ' + (ms.length - readB[p]) : ''}</span></h3><div class="msgs">` +
+    ms.map((x, o) => `<span class="m ${o < read[p] ? 'done' : ''} ${last.includes(x.id) ? 'new' : ''}" title="偏移量 ${o}">${o}:${x.k}</span>`).join('') + '</div></div>').join('');
+  const ids = members(), a = assign(ids, n);
+  let h = '<div style="font-size:12.5px;margin-bottom:4px">大屏组（group.id = screen）</div>';
+  for (let i = 1; i <= +$('nc').value; i++) {
+    if (dead && i === 1) { h += `<div class="cons idle">消费者 1：<span class="bad">已宕机</span>，它的分区重新分给了别人</div>`; continue; }
+    const ps = a[i] || [];
+    h += ps.length ? `<div class="cons">消费者 ${i}：读 <b>分区 ${ps.join('、')}</b></div>` : `<div class="cons idle">消费者 ${i}：没分到分区，闲着</div>`;
+  }
+  if ($('g2').checked) h += `<div style="font-size:12.5px;margin:8px 0 4px">风控组（group.id = risk）</div><div class="cons">消费者 1：读 <b>分区 ${parts.map((_, p) => p).join('、')}</b></div>`;
+  $('groups').innerHTML = h;
+  $('msg').innerHTML = m || '';
+}
+$('send').onclick = () => {
+  last = []; sent = [];
+  for (let i = 0; i < 6; i++) {
+    const k = USERS[(round * 5 + i * 3) % USERS.length];
+    const p = hash(k) % parts.length;
+    const id = ++seq; parts[p].push({ k, id }); last.push(id); sent.push({ k, p });
+  }
+  round++;
+  render(`6 条订单进了各自的分区。注意同一个用户（如 <b>${sent[0].k}</b>）的订单总是进同一个分区，所以同一个用户的订单在分区内是按先后顺序排好的。`);
+};
+$('poll').onclick = () => {
+  last = [];
+  const n = parts.length, ids = members(), a = assign(ids, n);
+  const got = ids.map(i => [i, (a[i] || []).reduce((s, p) => s + parts[p].length - read[p], 0)]);
+  parts.forEach((ms, p) => { read[p] = ms.length; readB[p] = ms.length; });
+  const idle = +$('nc').value - (dead ? 1 : 0) - ids.filter(i => (a[i] || []).length).length;
+  let m = '大屏组读了一轮：' + got.map(([i, c]) => `消费者 ${i} 读 ${c} 条`).join('，') + '。';
+  if (idle > 0) m += ` <span class="bad">有 ${idle} 个消费者没分到分区</span>：组里的消费者比分区多，多出来的只能闲着。想让更多消费者一起干活，要先增加分区。`;
+  if ($('g2').checked) m += ' 风控组也把全部消息读了一遍：<b>不同的组互不影响，各自记录读到了哪里。</b>';
+  render(m);
+};
+$('crash').onclick = () => {
+  if (+$('nc').value < 2) { render('至少要有 2 个消费者才能演示宕机。'); return; }
+  dead = true; last = [];
+  render('消费者 1 宕机，Kafka 发现后把它的分区重新分配给组里其他的消费者（这叫“再均衡”）。新接手的消费者从组里记下的偏移量接着读，消息不会丢。');
+};
+$('reset').onclick = reset;
+['np', 'nc'].forEach(id => $(id).onchange = reset);
+$('g2').onchange = () => render();
+reset();
+</script>
+<script src="../common/sim.js"></script>
+</body>
+</html>

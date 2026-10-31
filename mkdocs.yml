@@ -60,6 +60,8 @@ nav:
     - "Spark 作业怎样拆成 Stage 和 Task": sims/spark-stages/index.md
     - "数据清洗流水线": sims/cleaning-pipeline/index.md
     - "窗口函数": sims/window-functions/index.md
+    - "Kafka 分区与消费者组": sims/kafka-groups/index.md
+    - "时间窗口与迟到数据": sims/late-data/index.md
   - 学习图谱: learning-graph/index.md
   - 常见问题: faq/index.md
   - "在线模拟卷": mock-exam.md

@@ -18,3 +18,5 @@ description: 本书配套的交互动画，可以在浏览器里直接操作，�
 | 第 6 章 | [Spark 作业怎样拆成 Stage 和 Task](spark-stages/index.md) | 拼一个 RDD 程序，看行动怎样触发 Job、Shuffle 怎样切出 Stage、Task 怎样分批运行 |
 | 第 7 章 | [数据清洗流水线](cleaning-pipeline/index.md) | 勾选清洗步骤，看一份脏订单一步步变干净，顺序错了会丢哪些数据 |
 | 第 8 章 | [窗口函数](window-functions/index.md) | 选择分组排名、累计、移动平均、环比，逐行看每一行的结果怎样算出来 |
+| 第 9 章 | [Kafka 分区与消费者组](kafka-groups/index.md) | 发带键的消息看它进哪个分区，调整消费者个数看组内怎样分摊分区、积压怎样变化 |
+| 第 9 章 | [时间窗口与迟到数据](late-data/index.md) | 选择水位线，逐笔看迟到的订单被计入还是丢弃，比较准确与及时的取舍 |
