@@ -3,7 +3,8 @@
   "private": true,
   "description": "渲染 Mermaid 图和交互动画截图，供课件、教案和 Word/PDF 版使用（npm run figures）",
   "scripts": {
-    "figures": "node tools/render_figures.mjs"
+    "figures": "node tools/render_figures.mjs",
+    "showcase": "python tools/showcase.py record"
   },
   "devDependencies": {
     "mermaid": "11.17.2",

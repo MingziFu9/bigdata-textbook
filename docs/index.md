@@ -9,6 +9,22 @@
     4 学分 · 72 学时（理论 60 学时 + 实验 12 学时） · 第 3 学期 · 12 章 · 36 个实验 · 期末闭卷
 <!-- course:end -->
 
+<!-- showcase:start -->
+## 先玩一玩
+
+<p class="sc-tagline">一台电脑算不动的时候，大数据技术怎样接手</p>
+
+<div class="showcase" aria-label="精选交互动画">
+<ol class="sc-list">
+<li data-sim="sims/cluster-estimator/main.html" data-video="assets/showcase/cluster-estimator" data-title="单机与集群耗时估算器" data-play="拖动数据量，看单机和集群的耗时曲线在哪交叉。"><img src="assets/showcase/cluster-estimator.jpg" alt="单机与集群耗时估算器截图" loading="lazy"><p class="sc-hook">数据多大时，才值得动用一个集群？</p><p><b>单机与集群耗时估算器</b>　拖动数据量，看单机和集群的耗时曲线在哪交叉。</p><p><a href="sims/cluster-estimator/main.html">打开动画</a>　<a class="sc-chap" href="chapters/01-overview/" title="第 1 章 大数据概述与技术生态">去读第1章 →</a></p></li>
+<li data-sim="sims/hdfs-blocks/main.html" data-video="assets/showcase/hdfs-blocks" data-title="HDFS 切块与副本" data-play="上传一个文件，再亲手“停掉”一台节点。"><img src="assets/showcase/hdfs-blocks.jpg" alt="HDFS 切块与副本截图" loading="lazy"><p class="sc-hook">停掉一台机器，文件为什么还丢不了？</p><p><b>HDFS 切块与副本</b>　上传一个文件，再亲手“停掉”一台节点。</p><p><a href="sims/hdfs-blocks/main.html">打开动画</a>　<a class="sc-chap" href="chapters/03-hdfs/" title="第 3 章 HDFS 分布式文件系统">去读第3章 →</a></p></li>
+<li data-sim="sims/mapreduce-wordcount/main.html" data-video="assets/showcase/mapreduce-wordcount" data-title="MapReduce 词频统计全流程" data-play="Map、Shuffle、Reduce 一步一步亮起来。"><img src="assets/showcase/mapreduce-wordcount.jpg" alt="MapReduce 词频统计全流程截图" loading="lazy"><p class="sc-hook">拆开来数、合起来算：一次分布式统计全过程</p><p><b>MapReduce 词频统计全流程</b>　Map、Shuffle、Reduce 一步一步亮起来。</p><p><a href="sims/mapreduce-wordcount/main.html">打开动画</a>　<a class="sc-chap" href="chapters/04-mapreduce-yarn/" title="第 4 章 MapReduce 与 YARN">去读第4章 →</a></p></li>
+<li data-sim="sims/kafka-groups/main.html" data-video="assets/showcase/kafka-groups" data-title="Kafka 分区与消费者组" data-play="发几条消息，再让一个消费者“下线”。"><img src="assets/showcase/kafka-groups.jpg" alt="Kafka 分区与消费者组截图" loading="lazy"><p class="sc-hook">消费者宕机了，消息会不会丢？</p><p><b>Kafka 分区与消费者组</b>　发几条消息，再让一个消费者“下线”。</p><p><a href="sims/kafka-groups/main.html">打开动画</a>　<a class="sc-chap" href="chapters/09-streaming/" title="第 9 章 Kafka 与实时数据处理">去读第9章 →</a></p></li>
+<li data-sim="sims/skew-salt/main.html" data-video="assets/showcase/skew-salt" data-title="数据倾斜与加盐" data-play="加一点“盐”，红色长条被摊平。"><img src="assets/showcase/skew-salt.jpg" alt="数据倾斜与加盐截图" loading="lazy"><p class="sc-hook">一家热门店铺，拖垮了整个任务</p><p><b>数据倾斜与加盐</b>　加一点“盐”，红色长条被摊平。</p><p><a href="sims/skew-salt/main.html">打开动画</a>　<a class="sc-chap" href="chapters/11-tuning/" title="第 11 章 常见问题与调优">去读第11章 →</a></p></li>
+</ol>
+</div>
+<!-- showcase:end -->
+
 ## 这本书讲什么
 
 一家电商平台每天产生上亿条点击、加购、下单记录，一个大模型的训练语料动辄几十 TB。这些数据一台电脑存不下、算不完，要把很多台普通服务器组织起来一起存、一起算，这就是大数据技术。对人工智能技术应用专业的同学来说，大数据是“喂养”人工智能的上游：训练数据的采集、清洗和加工，模型上线后的数据回流和监控，都离不开大数据平台。

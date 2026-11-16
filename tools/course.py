@@ -13,6 +13,7 @@ sync 会做这些事（只增不删，已写好的正文不会被覆盖）：
     6. 学习图谱：data.js 里的章节名、文件夹列表
     7. 附录：按顺序编号为 A、B、C……（标题和“## A.1”这类小节号一起改）
     8. 交互动画目录页（按各动画 index.md 头部的 title、description 生成）
+    9. 首页“先玩一玩”轮播（course.yml 的 showcase 段，见 tools/showcase.py）
 
 动画属于第几章：index.md 头部写 chapter: N，或者 description 以“（第 N 章）”结尾。
 """
@@ -21,6 +22,7 @@ import sys
 
 from common import (CHAPTERS, DOCS, ROOT, chapter_heading, chapter_path, course, front_matter,
                     replace_between, site_url)
+from showcase import sync as sync_showcase
 
 GLOSSARY = DOCS / "appendix/glossary.md"
 
@@ -228,6 +230,7 @@ def sync():
     sync_graph(c)
     sync_sims_index()
     sync_index(c)
+    sync_showcase(c)
     sync_mkdocs(c)
     print("完成。接下来运行 mkdocs serve 预览。")
 

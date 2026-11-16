@@ -30,10 +30,12 @@ markdown_extensions:
       permalink: true
 extra_css:
   - css/extra.css
+  - css/showcase.css
 extra_javascript:
   - javascripts/mathjax.js
   - javascripts/book.js
   - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
+  - javascripts/showcase.js
 nav:
   - 首页: index.md
   - 课程描述: course-description.md

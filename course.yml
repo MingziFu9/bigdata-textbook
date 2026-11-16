@@ -54,3 +54,52 @@ lesson_plan:
   online_ratio: 0.8                   # 线上学时占比（本课线上 58、线下 14；各章已用 offline 指定）
   teacher: ""                         # 授课教师，留空则教案上留出填写位置
   school: ""                          # 学校名称，留空则不显示
+
+# 首页“先玩一玩”轮播：按轮播顺序写，第 1 个放画面最震撼的。sim 是 docs/sims/ 下的目录名，hook 是一句问句，play 是一句玩法；
+# steps 是录短视频时自动做的操作（写法见 编写规范.md“首页轮播”）。改完运行 python tools/showcase.py record 重录视频。
+showcase_tagline: "一台电脑算不动的时候，大数据技术怎样接手"
+showcase:
+  - sim: cluster-estimator
+    hook: "数据多大时，才值得动用一个集群？"
+    play: "拖动数据量，看单机和集群的耗时曲线在哪交叉。"
+    steps:
+      - ["click", "1 TB 一年的日志", {"hold": 1}]
+      - ["click", "1 PB 全公司数据", {"hold": 1}]
+      - ["slide", "#nn", 300, {"hold": 1}]
+      - ["poster"]
+      - ["slide", "#nn", 20, {"hold": 1}]
+  - sim: hdfs-blocks
+    hook: "停掉一台机器，文件为什么还丢不了？"
+    play: "上传一个文件，再亲手“停掉”一台节点。"
+    vw: 900
+    steps:
+      - ["click", "上传", {"hold": 2.5}]
+      - ["click", "停掉", {"hold": 1.2}]
+      - ["click", "NameNode 检查一次", {"hold": 2.5}]
+      - ["poster"]
+  - sim: mapreduce-wordcount
+    hook: "拆开来数、合起来算：一次分布式统计全过程"
+    play: "Map、Shuffle、Reduce 一步一步亮起来。"
+    vw: 860
+    steps:
+      - ["click", "下一步", {"n": 4, "gap": 0.9, "hold": 1}]
+      - ["poster"]
+      - ["click", "下一步", {"n": 2, "gap": 0.9, "hold": 1.2}]
+  - sim: kafka-groups
+    hook: "消费者宕机了，消息会不会丢？"
+    play: "发几条消息，再让一个消费者“下线”。"
+    vw: 860
+    steps:
+      - ["click", "生产者发 6 条", {"n": 2, "gap": 0.6, "hold": 0.8}]
+      - ["click", "消费者读一轮", {"hold": 1}]
+      - ["poster"]
+      - ["click", "大屏组 1 号消费者宕机", {"hold": 1}]
+      - ["click", "消费者读一轮", {"hold": 1.2}]
+  - sim: skew-salt
+    hook: "一家热门店铺，拖垮了整个任务"
+    play: "加一点“盐”，红色长条被摊平。"
+    steps:
+      - ["slide", "#salt", 4, {"sec": 1.6, "hold": 1.2}]
+      - ["poster"]
+      - ["click", "64 核（集群）", {"hold": 1}]
+      - ["slide", "#hot", 10, {"hold": 1}]

@@ -1,0 +1,41 @@
+/* 首页“先玩一玩”轮播（tools/showcase.py 生成内容，javascripts/showcase.js 负责交互）
+   没有脚本时退化为 5 张卡片的列表 */
+.md-typeset .showcase{--sc-stage:#0f1530;--sc-fg:#f3f4fb;--sc-muted:#aab0cc;margin:.4em 0 1.6em}
+.md-typeset .sc-tagline{margin:-.6em 0 .8em;color:var(--md-default-fg-color--light)}
+.md-typeset .sc-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:.8rem;list-style:none;margin:0;padding:0}
+.md-typeset .sc-list>li{margin:0;border:1px solid var(--md-default-fg-color--lightest);border-radius:.4rem;overflow:hidden}
+.md-typeset .sc-list img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;object-position:top left}
+.md-typeset .sc-list p{margin:.4rem .6rem}
+.md-typeset .showcase.on .sc-list{display:none}
+
+.md-typeset .sc-stage{position:relative;background:var(--sc-stage);color:var(--sc-fg);border-radius:.5rem;overflow:hidden}
+.md-typeset .sc-media{position:relative;aspect-ratio:16/9;background:#fff;overflow:hidden;cursor:pointer}
+.md-typeset .sc-media img,.md-typeset .sc-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;display:block;margin:0;max-width:none}
+.md-typeset .sc-cap{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1rem;padding:.75rem 1rem .85rem}
+.md-typeset .sc-cap-txt{flex:1 1 20rem;min-width:0}
+.md-typeset .sc-hook{margin:0;font-size:1.05rem;line-height:1.4;font-weight:700;color:var(--sc-fg)}
+.md-typeset .sc-desc{margin:.15rem 0 0;font-size:.72rem;color:var(--sc-muted)}
+.md-typeset .sc-desc b{color:#c5cdff;font-weight:600}
+.md-typeset .sc-act{display:flex;align-items:center;gap:.8rem;flex:0 0 auto}
+.md-typeset .sc-try{border:0;border-radius:999px;background:#fff;color:#1f2333;padding:.4rem .9rem;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit}
+.md-typeset .sc-try:hover{background:#e8ebff}
+.md-typeset .sc-chap{color:var(--sc-fg);font-size:.72rem;border-bottom:1px solid rgba(255,255,255,.35);white-space:nowrap}
+.md-typeset .sc-chap:hover{color:#fff;border-bottom-color:#fff}
+.md-typeset .sc-arrow{position:absolute;top:calc(50% - 1.1rem);width:2.2rem;height:2.2rem;border-radius:50%;border:0;background:rgba(15,21,48,.6);color:#fff;font-size:1.1rem;line-height:1;cursor:pointer;display:grid;place-items:center;z-index:2}
+.md-typeset .sc-arrow.prev{left:.6rem}.md-typeset .sc-arrow.next{right:.6rem}
+@media (hover:hover){.md-typeset .sc-arrow{opacity:0;transition:opacity .2s}.md-typeset .sc-media:hover .sc-arrow,.md-typeset .sc-arrow:focus-visible{opacity:1}}
+.md-typeset .sc-tabs{display:flex;gap:.35rem;margin-top:.55rem;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.md-typeset .sc-tab{position:relative;flex:1 0 auto;border:1px solid var(--md-default-fg-color--lightest);background:var(--md-default-bg-color);border-radius:.4rem;padding:.35rem .7rem .45rem;font-size:.7rem;color:var(--md-default-fg-color--light);cursor:pointer;white-space:nowrap;overflow:hidden;font-family:inherit}
+.md-typeset .sc-tab .no{opacity:.65;margin-right:.35rem;font-variant-numeric:tabular-nums}
+.md-typeset .sc-tab[aria-selected="true"]{border-color:var(--md-primary-fg-color);color:var(--md-default-fg-color);font-weight:600;background:var(--md-accent-fg-color--transparent)}
+.md-typeset .sc-tab .prog{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--md-primary-fg-color)}
+.md-typeset .showcase.auto .sc-tab[aria-selected="true"] .prog{animation:sc-fill var(--sc-dur,7s) linear forwards}
+.md-typeset .showcase.paused .sc-tab .prog{animation-play-state:paused}
+@keyframes sc-fill{to{width:100%}}
+.md-typeset .sc-live{position:absolute;inset:0;background:#fff;z-index:3}
+.md-typeset .sc-live iframe{width:100%;height:100%;border:0;display:block}
+.md-typeset .sc-close{position:absolute;top:.5rem;right:.5rem;border:0;border-radius:999px;background:rgba(15,21,48,.85);color:#fff;padding:.25rem .7rem;font-size:.68rem;cursor:pointer;z-index:4;font-family:inherit}
+.md-typeset .sc-stage.live .sc-media{aspect-ratio:auto;height:min(78vh,42rem);cursor:auto}
+.md-typeset .sc-stage.live .sc-cap,.md-typeset .sc-stage.live .sc-arrow{display:none}
+@media (max-width:44.9375em){.md-typeset .sc-hook{font-size:.9rem}.md-typeset .sc-cap{padding:.6rem .7rem .7rem}.md-typeset .sc-tab{flex:0 0 auto}}
+@media (prefers-reduced-motion:reduce){.md-typeset .sc-tab .prog{display:none}}
