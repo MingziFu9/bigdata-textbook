@@ -15,8 +15,8 @@
     if (!items.length) return;
     var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     var saveData = !!(navigator.connection && navigator.connection.saveData);
-    var useVideo = !reduce && !saveData;
-    var i = 0, auto = !reduce, steps = 0, hover = false, live = false, timer = null, video = null;
+    var autoVideo = !reduce && !saveData;   // 系统关了动画效果或开了省流量：仍给视频，但不自动播放，读者点 ▶ 再看
+    var i = 0, auto = autoVideo, steps = 0, hover = false, live = false, timer = null, video = null;
 
     function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
     var stage = el("div", "sc-stage"), media = el("div", "sc-media"), img = el("img");
@@ -59,16 +59,21 @@
       var it = items[i];
       img.src = it.poster; img.alt = it.title + "截图";
       if (video) { video.remove(); video = null; }
-      if (useVideo && it.video) {
+      if (it.video) {
         video = el("video");
-        video.muted = true; video.playsInline = true; video.autoplay = true; video.loop = !auto;
-        video.setAttribute("muted", ""); video.setAttribute("playsinline", ""); video.preload = "auto";
+        video.muted = true; video.playsInline = true; video.autoplay = autoVideo; video.loop = !auto;
+        video.setAttribute("muted", ""); video.setAttribute("playsinline", ""); video.preload = autoVideo ? "auto" : "metadata";
+        if (!autoVideo) video.controls = true;
         video.poster = it.poster; video.setAttribute("aria-label", it.title + "操作演示（无声）");
         video.innerHTML = '<source src="' + it.video + '.webm" type="video/webm"><source src="' + it.video + '.mp4" type="video/mp4">';
         video.addEventListener("ended", function () { if (auto && !live) { if (hover) { video.play(); return; } advance(); } });
         video.addEventListener("loadedmetadata", function () { if (video) root.style.setProperty("--sc-dur", video.duration + "s"); });
         media.insertBefore(video, prev);
-        var pr = video.play(); if (pr && pr.catch) pr.catch(function () {});
+        if (autoVideo) {
+          var v = video, pr = v.play();
+          // 浏览器拦了自动播放：显示播放按钮，读者点一下就能看
+          if (pr && pr.catch) pr.catch(function () { v.controls = true; stop(); });
+        }
       } else {
         root.style.setProperty("--sc-dur", "7s");
       }
@@ -92,11 +97,11 @@
     function closeLive() {
       var b = media.querySelector(".sc-live"); if (b) b.remove();
       stage.classList.remove("live");
-      if (live && video) video.play();
+      if (live && video && !video.controls) video.play();
       live = false;
     }
     tryBtn.onclick = openLive;
-    media.addEventListener("click", function (e) { if (!live && !e.target.closest("button")) openLive(); });
+    media.addEventListener("click", function (e) { if (!live && !e.target.closest("button") && !(video && video.controls && e.target === video)) openLive(); });
     prev.onclick = function () { stop(); go(i - 1); };
     next.onclick = function () { stop(); go(i + 1); };
     root.addEventListener("mouseenter", function () { hover = true; root.classList.add("paused"); });
