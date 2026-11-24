@@ -97,6 +97,22 @@ flowchart LR
 
 今天，直接手写 MapReduce 程序的人已经不多了，更常用的是第 5 章的 Hive 和第 6 章起的 Spark。但 Hive 把 SQL 语句翻译成的计算任务、Spark 的分组汇总，都要经过和 MapReduce 一样的“Map、Shuffle、Reduce”过程，第 11 章分析“作业为什么慢”时还会反复用到本章的知识。所以本章的重点不是背 API，而是**看懂数据在集群里是怎样流动的**。
 
+??? microvideo "思维工具微课｜一个人数完全国的人，要多少年？　4 分 57 秒"
+
+    <video class="mv-video" controls preload="none" playsinline poster="../../assets/video/k3.jpg">
+      <source src="../../assets/video/k3.mp4" type="video/mp4">
+    </video>
+
+    **这一集的思维工具：估个数量级。** 什么时候用：动手之前，先知道事情多大。怎么用：拆小、取整、乘除一下。局限：假设错了，结果就错。
+
+    **看完选两件做：**
+
+    - 玩一玩：看“WordCount 全流程”动画怎么分、怎么合。
+    - 审一审 AI：让它估一个数，再检查它的假设。
+    - 想一想自己：手上哪件事该先估一估大小。
+
+    <p class="mv-note">本片配音和部分画面由 AI 生成。</p>
+
 ## 4.2 看懂背后发生了什么：Map、Shuffle、Reduce
 
 ### 4.2.1 一个作业的三个阶段

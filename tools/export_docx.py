@@ -80,6 +80,7 @@ def convert(md, page="index.md"):
     md = re.sub(r"```mermaid\n(.*?)```", mermaid_figure, md, flags=re.S)
     md = re.sub(r'<iframe[^>]*src="[^"]*sims/([\w-]+)/main\.html"[^>]*title="([^"]*)"[^>]*></iframe>', sim_figure, md)
     md = re.sub(r'<iframe[^>]*title="([^"]*)"[^>]*></iframe>', r"> 【交互动画】\1：请在网页版查看。", md)
+    md = re.sub(r'<video[^>]*>.*?</video>', '【思维工具微课】视频请在网页版观看。', md, flags=re.S)
     md = re.sub(r"^.*\{ \.sim-caption \}\n", "", md, flags=re.M)
     md = re.sub(r'<sup class="cite">\[\[(\d+)\]\]\([^)]*\)</sup>', r"^[\1]^", md)
     md = re.sub(r'<span class="ref-note">(.*?)</span>', r"\1", md)

@@ -73,3 +73,11 @@ a.term[data-def]:hover::after {
   background-color: #8e24aa; -webkit-mask-image: var(--md-admonition-icon--cert); mask-image: var(--md-admonition-icon--cert);
 }
 
+
+/* 思维工具微课（折叠框 + 视频） */
+:root{--md-admonition-icon--microvideo:url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>')}
+.md-typeset .admonition.microvideo,.md-typeset details.microvideo{border-color:#d97706}
+.md-typeset .microvideo>.admonition-title,.md-typeset .microvideo>summary{background-color:rgba(217,119,6,.1)}
+.md-typeset .microvideo>.admonition-title::before,.md-typeset .microvideo>summary::before{background-color:#d97706;-webkit-mask-image:var(--md-admonition-icon--microvideo);mask-image:var(--md-admonition-icon--microvideo)}
+.md-typeset .mv-video{display:block;width:100%;max-width:860px;aspect-ratio:16/9;margin:.8em 0;border-radius:6px;background:#f7f3ea}
+.md-typeset .mv-note{font-size:.75em;color:var(--md-default-fg-color--light)}
